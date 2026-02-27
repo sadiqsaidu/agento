@@ -28,7 +28,7 @@ async function main() {
 
   // ── LLM via OpenRouter ──
   const llm = new ChatOpenAI({
-    model: "google/gemini-2.0-flash-001",
+    model: "openai/gpt-oss-120b:free",
     configuration: {
       baseURL: "https://openrouter.ai/api/v1",
     },
