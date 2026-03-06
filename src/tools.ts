@@ -197,23 +197,6 @@ export const transferTool: ToolDef = {
   },
 };
 
-export const requestAirdrop: ToolDef = {
-  name: "request_airdrop",
-  description:
-    "Request an airdrop of 2 SOL from the devnet faucet. Only works on devnet/testnet.",
-  schema: z.object({}),
-  execute: async (_input, ctx) => {
-    const wc = w(ctx);
-    const sig = await wc.connection.requestAirdrop(wc.publicKey, 2 * LAMPORTS_PER_SOL);
-    const bh = await wc.connection.getLatestBlockhash();
-    await wc.connection.confirmTransaction(
-      { signature: sig, blockhash: bh.blockhash, lastValidBlockHeight: bh.lastValidBlockHeight },
-      "confirmed",
-    );
-    return { signature: sig, amount_sol: 2 };
-  },
-};
-
 export const listWallets: ToolDef = {
   name: "list_wallets",
   description:
@@ -222,6 +205,71 @@ export const listWallets: ToolDef = {
   execute: async (_input, ctx) => {
     const wallets = ctx.keystore.list();
     return { wallets, count: wallets.length };
+  },
+};
+
+export const requestAirdrop: ToolDef = {
+  name: "request_airdrop",
+  description:
+    "Request a SOL airdrop on devnet (max 2 SOL per request). Only works on Solana devnet.",
+  schema: z.object({
+    amount: z
+      .number()
+      .min(0.1)
+      .max(2)
+      .optional()
+      .describe("Amount of SOL to airdrop (default: 1, max: 2)"),
+  }),
+  execute: async (input, ctx) => {
+    const wc = w(ctx);
+    const amount = input.amount ?? 1;
+    const sig = await wc.connection.requestAirdrop(
+      wc.publicKey,
+      Math.floor(amount * LAMPORTS_PER_SOL),
+    );
+    const bh = await wc.connection.getLatestBlockhash();
+    await wc.connection.confirmTransaction(
+      { signature: sig, blockhash: bh.blockhash, lastValidBlockHeight: bh.lastValidBlockHeight },
+      "confirmed",
+    );
+    return { signature: sig, amount, address: wc.publicKey.toBase58() };
+  },
+};
+
+export const importWallet: ToolDef = {
+  name: "import_wallet",
+  description:
+    "Import an existing Solana wallet from a base58-encoded private key. The key is encrypted and stored in the local keystore.",
+  schema: z.object({
+    privateKey: z.string().describe("Base58-encoded private key (64-byte secret key)"),
+  }),
+  execute: async (input, ctx) => {
+    const { id, address } = ctx.keystore.import(input.privateKey, ctx.password);
+    return { wallet_id: id, address };
+  },
+};
+
+export const exportWallet: ToolDef = {
+  name: "export_wallet",
+  description:
+    "Export the private key of the current wallet as a base58 string. Use with extreme caution — anyone with this key controls the wallet.",
+  schema: z.object({}),
+  execute: async (_input, ctx) => {
+    const key = ctx.keystore.export(ctx.walletId, ctx.password);
+    return { private_key: key, warning: "Keep this key safe. Anyone with it controls the wallet." };
+  },
+};
+
+export const deleteWallet: ToolDef = {
+  name: "delete_wallet",
+  description:
+    "Permanently delete a wallet from the keystore. This action is irreversible — make sure you have exported the key if needed.",
+  schema: z.object({
+    walletId: z.string().describe("The wallet ID (UUID) to delete"),
+  }),
+  execute: async (input, _ctx) => {
+    _ctx.keystore.delete(input.walletId);
+    return { deleted: input.walletId, success: true };
   },
 };
 
@@ -516,8 +564,11 @@ export const ALL_TOOLS: ToolDef[] = [
   getBalance,
   getTokenBalancesTool,
   transferTool,
-  requestAirdrop,
   listWallets,
+  requestAirdrop,
+  importWallet,
+  exportWallet,
+  deleteWallet,
   // Jupiter — Trading
   swapTokens,
   fetchTokenPrice,

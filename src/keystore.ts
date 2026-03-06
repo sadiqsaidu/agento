@@ -15,8 +15,6 @@ import { join } from "node:path";
 import { Keypair } from "@solana/web3.js";
 import bs58 from "bs58";
 
-// --- Types ---
-
 export interface KeystoreFile {
   version: 3;
   id: string;
@@ -38,11 +36,9 @@ export interface KeystoreFile {
   created_at: string;
 }
 
-// --- KDF ---
-
 const KDF_PARAMS = {
   dklen: 32,
-  n: 2 ** 18, // 262144 — strong but not absurd
+  n: 2 ** 18, 
   r: 8,
   p: 1,
 } as const;
@@ -56,11 +52,10 @@ function deriveKey(password: string, salt: Buffer): Buffer {
   });
 }
 
-// --- Encrypt / Decrypt ---
 
 function encrypt(secretKey: Uint8Array, password: string): KeystoreFile {
   const salt = randomBytes(32);
-  const iv = randomBytes(12); // GCM standard: 12 bytes
+  const iv = randomBytes(12); 
   const derivedKey = deriveKey(password, salt);
 
   const cipher = createCipheriv("aes-256-gcm", derivedKey, iv);
@@ -105,7 +100,6 @@ function decrypt(keystore: KeystoreFile, password: string): Keypair {
   return Keypair.fromSecretKey(new Uint8Array(decrypted));
 }
 
-// --- UUID v4 generator (no dependency) ---
 
 function generateId(): string {
   const bytes = randomBytes(16);
@@ -121,7 +115,6 @@ function generateId(): string {
   ].join("-");
 }
 
-// --- Keystore Manager ---
 
 export class Keystore {
   private dir: string;
@@ -133,7 +126,6 @@ export class Keystore {
     }
   }
 
-  /** Create a new wallet, encrypt it, and persist to disk */
   create(password: string): { id: string; address: string } {
     const keypair = Keypair.generate();
     const keystore = encrypt(keypair.secretKey, password);
@@ -142,7 +134,6 @@ export class Keystore {
     return { id: keystore.id, address: keystore.address };
   }
 
-  /** Import an existing keypair from a base58-encoded secret key */
   import(secretKeyBase58: string, password: string): { id: string; address: string } {
     const secretKey = bs58.decode(secretKeyBase58);
     const keystore = encrypt(secretKey, password);
@@ -151,13 +142,11 @@ export class Keystore {
     return { id: keystore.id, address: keystore.address };
   }
 
-  /** Unlock a wallet by ID and password → returns a Keypair */
   unlock(id: string, password: string): Keypair {
     const keystore = this.read(id);
     return decrypt(keystore, password);
   }
 
-  /** List all stored wallets (id + address, no secrets) */
   list(): Array<{ id: string; address: string; created_at: string }> {
     const files = readdirSync(this.dir).filter((f) => f.endsWith(".json"));
     return files.map((f) => {
@@ -166,14 +155,12 @@ export class Keystore {
     });
   }
 
-  /** Delete a wallet by ID */
   delete(id: string): void {
     const filePath = join(this.dir, `${id}.json`);
     if (!existsSync(filePath)) throw new Error(`Wallet ${id} not found`);
     unlinkSync(filePath);
   }
 
-  /** Export the base58-encoded private key (requires password) */
   export(id: string, password: string): string {
     const keypair = this.unlock(id, password);
     return bs58.encode(keypair.secretKey);

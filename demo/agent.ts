@@ -4,7 +4,8 @@
  * This demonstrates the core value proposition:
  *   An AI agent (this file) connects to Agento's MCP server (src/mcp.ts)
  *   and autonomously manages a Solana wallet — creating wallets, checking
- *   balances, executing swaps, placing limit orders, staking, and lending.
+ *   balances, retrieving market data, executing swaps, placing limit orders,
+ *   staking, and lending.
  *
  * Architecture:
  *   [This Agent] --stdio--> [Agento MCP Server] --RPC/API--> [Solana Devnet]
@@ -21,6 +22,7 @@ import "dotenv/config";
 
 async function main() {
   const apiKey = process.env.OPENROUTER_API_KEY;
+  const model = process.env.OPENROUTER_MODEL || "openai/gpt-oss-120b:free";
   if (!apiKey) {
     console.error("❌ OPENROUTER_API_KEY is required");
     process.exit(1);
@@ -28,7 +30,7 @@ async function main() {
 
   // ── LLM via OpenRouter ──
   const llm = new ChatOpenAI({
-    model: "openai/gpt-oss-120b:free",
+    model,
     configuration: {
       baseURL: "https://openrouter.ai/api/v1",
     },
@@ -38,6 +40,7 @@ async function main() {
 
   // ── Connect to Agento MCP server via stdio ──
   console.log("🔌 Connecting to Agento MCP server...\n");
+  console.log(`🧠 Model: ${model}\n`);
 
   const mcpClient = new MultiServerMCPClient({
     mcpServers: {
@@ -69,6 +72,7 @@ You have access to a set of wallet and DeFi tools through the Agento MCP server.
 Your capabilities include:
 - Creating and managing Solana wallets
 - Checking SOL and token balances
+- Fetching token prices and market context
 - Transferring SOL and SPL tokens
 - Swapping tokens via Jupiter
 - Creating and managing limit orders
@@ -76,10 +80,10 @@ Your capabilities include:
 - Lending assets via Lulo for yield
 
 When asked to perform operations:
-1. Always check the wallet balance first
-2. Use request_airdrop to get devnet SOL if the balance is low
-3. Explain what you're doing before each action
-4. Report transaction signatures after operations
+1. Prefer information-gathering tools first unless the user explicitly asks for an on-chain action
+2. Explain what you're doing before each action
+3. Report transaction signatures after on-chain operations
+4. If an action needs funds and the wallet appears unfunded, explain the constraint and suggest the user fund the wallet externally
 5. Handle errors gracefully and suggest alternatives
 
 You are running on Solana DEVNET — all transactions use test tokens.`,
@@ -88,7 +92,7 @@ You are running on Solana DEVNET — all transactions use test tokens.`,
   // ── Run the agent ──
   const task =
     process.argv[2] ||
-    "Create a new wallet, airdrop 2 SOL to it, check the balance, and then show me the wallet address.";
+    "List the available Agento wallets, show the active wallet address, check its SOL balance, and fetch the current prices of SOL and USDC.";
 
   console.log(`📋 Task: ${task}\n`);
   console.log("─".repeat(60) + "\n");
@@ -128,6 +132,12 @@ You are running on Solana DEVNET — all transactions use test tokens.`,
 }
 
 main().catch((err) => {
+  if (err?.message?.includes("429")) {
+    console.error(
+      "Fatal: OpenRouter rate limit hit. Set OPENROUTER_MODEL to a different available model or retry later.",
+    );
+    process.exit(1);
+  }
   console.error("Fatal:", err.message);
   process.exit(1);
 });

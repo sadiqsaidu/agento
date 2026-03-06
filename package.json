@@ -8,6 +8,7 @@
     "mcp": "tsx src/mcp.ts",
     "rest": "tsx src/rest.ts",
     "demo": "tsx demo/agent.ts",
+    "cli": "tsx src/cli.ts",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit"
   },

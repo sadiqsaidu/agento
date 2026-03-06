@@ -13,6 +13,7 @@ import { z } from "zod";
 import { loadConfig } from "./config.js";
 import { createKeystore } from "./wallet.js";
 import { ALL_TOOLS, type ToolContext } from "./tools.js";
+import { emitToolEvent, summarize } from "./events.js";
 
 async function main() {
   const config = loadConfig();
@@ -44,13 +45,32 @@ async function main() {
       tool.description,
       shape,
       async (args: Record<string, unknown>) => {
+        const start = Date.now();
         try {
           const parsed = tool.schema.parse(args);
           const result = await tool.execute(parsed, ctx);
+          emitToolEvent({
+            timestamp: new Date().toISOString(),
+            tool: tool.name,
+            wallet: walletId ? walletId.slice(0, 8) : "none",
+            status: "success",
+            durationMs: Date.now() - start,
+            summary: summarize(tool.name, result),
+            source: "mcp",
+          });
           return {
             content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
           };
         } catch (err: any) {
+          emitToolEvent({
+            timestamp: new Date().toISOString(),
+            tool: tool.name,
+            wallet: walletId ? walletId.slice(0, 8) : "none",
+            status: "error",
+            durationMs: Date.now() - start,
+            summary: err.message,
+            source: "mcp",
+          });
           return {
             content: [{ type: "text" as const, text: `Error: ${err.message}` }],
             isError: true,

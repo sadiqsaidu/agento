@@ -13,9 +13,11 @@
 
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
+import { streamSSE } from "hono/streaming";
 import { loadConfig } from "./config.js";
 import { createKeystore } from "./wallet.js";
 import { ALL_TOOLS, type ToolContext } from "./tools.js";
+import { emitToolEvent, summarize, onToolEvent, getRecentEvents } from "./events.js";
 
 const config = loadConfig();
 const keystore = createKeystore(config);
@@ -63,9 +65,28 @@ app.post("/tools/:name", async (c) => {
   try {
     const body = await c.req.json().catch(() => ({}));
     const parsed = tool.schema.parse(body);
+    const start = Date.now();
     const result = await tool.execute(parsed, ctx);
+    emitToolEvent({
+      timestamp: new Date().toISOString(),
+      tool: toolName,
+      wallet: walletId ? walletId.slice(0, 8) : "none",
+      status: "success",
+      durationMs: Date.now() - start,
+      summary: summarize(toolName, result),
+      source: "rest",
+    });
     return c.json({ success: true, result });
   } catch (err: any) {
+    emitToolEvent({
+      timestamp: new Date().toISOString(),
+      tool: toolName,
+      wallet: walletId ? walletId.slice(0, 8) : "none",
+      status: "error",
+      durationMs: 0,
+      summary: err.message,
+      source: "rest",
+    });
     const status = err.name === "ZodError" ? 400 : 500;
     return c.json({ success: false, error: err.message }, status);
   }
@@ -87,6 +108,36 @@ app.post("/wallets", async (c) => {
 app.get("/wallets", (c) => {
   const wallets = keystore.list();
   return c.json({ wallets, count: wallets.length });
+});
+
+// ─── Server-Sent Events (for CLI monitor) ───
+
+app.get("/events", (c) => {
+  return streamSSE(c, async (stream) => {
+    // Send buffered recent events so new clients catch up
+    for (const event of getRecentEvents()) {
+      await stream.writeSSE({ data: JSON.stringify(event), event: "tool" });
+    }
+
+    // Subscribe to live events
+    let alive = true;
+    stream.onAbort(() => {
+      alive = false;
+    });
+
+    const cleanup = onToolEvent((event) => {
+      if (alive) {
+        stream.writeSSE({ data: JSON.stringify(event), event: "tool" }).catch(() => {});
+      }
+    });
+
+    // Keep connection open until client disconnects
+    while (alive) {
+      await stream.sleep(15000);
+    }
+
+    cleanup();
+  });
 });
 
 // ─── Start ───

@@ -22,7 +22,7 @@ Agento provides a dual-interface wallet service (MCP + REST) that any AI agent c
 │          A G E N T O                │
 │                                     │
 │  ┌───────────┐  ┌────────────────┐  │
-│  │  Keystore │  │   15 Tools     │  │
+│  │  Keystore │  │   14 Tools     │  │
 │  │ AES-256   │  │                │  │
 │  │  scrypt   │  │ • Wallet Mgmt  │  │
 │  │  GCM      │  │ • Jupiter Swap │  │
@@ -49,7 +49,7 @@ Agento provides a dual-interface wallet service (MCP + REST) that any AI agent c
 
 | Category | Tools |
 |----------|-------|
-| **Wallet** | `create_wallet` · `get_wallet_address` · `get_balance` · `get_token_balances` · `transfer` · `request_airdrop` · `list_wallets` |
+| **Wallet** | `create_wallet` · `get_wallet_address` · `get_balance` · `get_token_balances` · `transfer` · `list_wallets` |
 | **Jupiter Trading** | `swap_tokens` · `fetch_token_price` · `create_limit_order` · `cancel_limit_orders` · `get_open_orders` |
 | **Jupiter Staking** | `stake_sol` (SOL → jupSOL) |
 | **Lulo Lending** | `lend_asset` · `withdraw_lend` |
@@ -86,6 +86,7 @@ npm install
 ```env
 SOLANA_RPC_URL=https://api.devnet.solana.com
 OPENROUTER_API_KEY=sk-or-v1-...      # For demo agent only
+OPENROUTER_MODEL=openai/gpt-oss-120b:free
 JUPITER_API_KEY=                       # Optional: free tier at portal.jup.ag
 REST_PORT=3000
 KEYSTORE_DIR=./wallets
@@ -163,8 +164,10 @@ WALLET_ID=<id> WALLET_PASSWORD=<pw> npx tsx src/mcp.ts
 
 ```bash
 # First create a wallet and set WALLET_ID in .env
-npx tsx demo/agent.ts "Create a wallet, airdrop SOL, and check the balance"
+npx tsx demo/agent.ts "Show my wallet address, check the balance, and fetch the prices of SOL and USDC"
 ```
+
+If OpenRouter returns `429`, set `OPENROUTER_MODEL` in `.env` to another model available on your account and retry.
 
 ---
 
@@ -192,7 +195,7 @@ agento/
 │   ├── config.ts      # Env validation (Zod)
 │   ├── keystore.ts    # AES-256-GCM encrypted wallet storage
 │   ├── wallet.ts      # Keypair + Connection manager
-│   ├── tools.ts       # 15 tool definitions (Jupiter, Lulo, wallet ops)
+│   ├── tools.ts       # 14 tool definitions (Jupiter, Lulo, wallet ops)
 │   ├── mcp.ts         # MCP server (stdio transport)
 │   └── rest.ts        # REST server (Hono)
 ├── demo/
