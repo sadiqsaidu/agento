@@ -14,6 +14,12 @@ import { loadConfig } from "./config.js";
 import { createKeystore } from "./wallet.js";
 import { ALL_TOOLS, type ToolContext } from "./tools.js";
 import { emitToolEvent, summarize } from "./events.js";
+import {
+  TRANSACTIONAL_TOOLS,
+  checkGuardrails,
+  recordTransaction,
+  loadGuardrailConfig,
+} from "./guardrails.js";
 
 async function main() {
   const config = loadConfig();
@@ -29,6 +35,9 @@ async function main() {
     walletId,
     password: walletPassword,
   };
+
+  // Initialize guardrails
+  loadGuardrailConfig();
 
   const server = new McpServer({
     name: "agento",
@@ -48,7 +57,51 @@ async function main() {
         const start = Date.now();
         try {
           const parsed = tool.schema.parse(args);
+
+          // ── Guardrail check for transactional tools ──
+          if (TRANSACTIONAL_TOOLS.has(tool.name)) {
+            let walletAddress = "";
+            try {
+              const { getWalletCtx } = await import("./wallet.js");
+              const wc = getWalletCtx(walletId, walletPassword, keystore, config);
+              walletAddress = wc.publicKey.toBase58();
+            } catch { /* wallet may not exist yet */ }
+
+            const guard = await checkGuardrails(tool.name, parsed, walletId, config, walletAddress);
+            if (!guard.allowed) {
+              emitToolEvent({
+                timestamp: new Date().toISOString(),
+                tool: tool.name,
+                wallet: walletId ? walletId.slice(0, 8) : "none",
+                status: "blocked",
+                durationMs: Date.now() - start,
+                summary: `🛡️ ${guard.rule}: ${guard.reason}`,
+                blockedBy: guard.rule ?? undefined,
+                source: "mcp",
+              });
+              return {
+                content: [{
+                  type: "text" as const,
+                  text: `Blocked by guardrail [${guard.rule}]: ${guard.reason}`,
+                }],
+                isError: true,
+              };
+            }
+          }
+
           const result = await tool.execute(parsed, ctx);
+
+          // Record successful transactional operations
+          if (TRANSACTIONAL_TOOLS.has(tool.name)) {
+            const SOL_MINT = "So11111111111111111111111111111111111111112";
+            let amountSol = 0;
+            const p = parsed as Record<string, any>;
+            if (tool.name === "transfer" && !p.mint) amountSol = p.amount ?? 0;
+            else if (tool.name === "swap_tokens" && (!p.inputMint || p.inputMint === SOL_MINT)) amountSol = p.inputAmount ?? 0;
+            else if (tool.name === "stake_sol") amountSol = p.amount ?? 0;
+            recordTransaction(walletId, amountSol, tool.name);
+          }
+
           emitToolEvent({
             timestamp: new Date().toISOString(),
             tool: tool.name,

@@ -18,6 +18,12 @@ import { loadConfig } from "./config.js";
 import { createKeystore } from "./wallet.js";
 import { ALL_TOOLS, type ToolContext } from "./tools.js";
 import { emitToolEvent, summarize, onToolEvent, getRecentEvents } from "./events.js";
+import {
+  TRANSACTIONAL_TOOLS,
+  checkGuardrails,
+  recordTransaction,
+  loadGuardrailConfig,
+} from "./guardrails.js";
 
 const config = loadConfig();
 const keystore = createKeystore(config);
@@ -66,7 +72,45 @@ app.post("/tools/:name", async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const parsed = tool.schema.parse(body);
     const start = Date.now();
+
+    // ── Guardrail check for transactional tools ──
+    if (TRANSACTIONAL_TOOLS.has(toolName)) {
+      let walletAddress = "";
+      try {
+        const { getWalletCtx } = await import("./wallet.js");
+        const wc = getWalletCtx(walletId, walletPassword, keystore, config);
+        walletAddress = wc.publicKey.toBase58();
+      } catch { /* wallet may not exist yet for some tools */ }
+
+      const guard = await checkGuardrails(toolName, parsed, walletId, config, walletAddress);
+      if (!guard.allowed) {
+        emitToolEvent({
+          timestamp: new Date().toISOString(),
+          tool: toolName,
+          wallet: walletId ? walletId.slice(0, 8) : "none",
+          status: "blocked",
+          durationMs: Date.now() - start,
+          summary: `🛡️ ${guard.rule}: ${guard.reason}`,
+          blockedBy: guard.rule ?? undefined,
+          source: "rest",
+        });
+        return c.json({ success: false, blocked: true, rule: guard.rule, reason: guard.reason }, 403);
+      }
+
+      // Attach warnings to the response if any
+      if (guard.warnings.length > 0) {
+        // Warnings are non-blocking — continue execution
+      }
+    }
+
     const result = await tool.execute(parsed, ctx);
+
+    // Record successful transactional operations in the ledger
+    if (TRANSACTIONAL_TOOLS.has(toolName)) {
+      const amountSol = extractSolAmountFromInput(toolName, parsed);
+      recordTransaction(walletId, amountSol, toolName);
+    }
+
     emitToolEvent({
       timestamp: new Date().toISOString(),
       tool: toolName,
@@ -141,6 +185,26 @@ app.get("/events", (c) => {
 });
 
 // ─── Start ───
+
+// Initialize guardrails on startup
+loadGuardrailConfig();
+
+/** Quick SOL amount extractor for the tx ledger (mirrors guardrails.ts logic). */
+function extractSolAmountFromInput(tool: string, input: Record<string, any>): number {
+  const SOL_MINT = "So11111111111111111111111111111111111111112";
+  switch (tool) {
+    case "transfer":
+      return !input.mint ? (input.amount as number) ?? 0 : 0;
+    case "swap_tokens":
+      return (!input.inputMint || input.inputMint === SOL_MINT)
+        ? (input.inputAmount as number) ?? 0
+        : 0;
+    case "stake_sol":
+      return (input.amount as number) ?? 0;
+    default:
+      return 0;
+  }
+}
 
 const port = config.REST_PORT;
 console.log(`🚀 Agento REST server listening on http://localhost:${port}`);

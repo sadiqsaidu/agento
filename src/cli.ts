@@ -314,7 +314,12 @@ function printEvent(event: ToolEvent) {
     minute: "2-digit",
     second: "2-digit",
   });
-  const icon = event.status === "success" ? `${GREEN}✅${RESET}` : `${RED}❌${RESET}`;
+  const icon =
+    event.status === "success"
+      ? `${GREEN}✅${RESET}`
+      : event.status === "blocked"
+        ? `${YELLOW}🛡️${RESET}`
+        : `${RED}❌${RESET}`;
   const tool = `${CYAN}${event.tool.padEnd(22)}${RESET}`;
   const ms = `${DIM}${String(event.durationMs).padStart(5)}ms${RESET}`;
   const wallet = `${DIM}[${event.wallet}]${RESET}`;

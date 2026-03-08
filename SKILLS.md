@@ -72,6 +72,26 @@ You can create wallets, hold tokens, sign transactions, swap, stake, lend, and m
 
 ---
 
+## Guardrails (Safety Layer)
+
+Agento includes a **guardrail engine** that protects your wallet from dangerous or accidental operations. These rules are enforced automatically on all transactional tools (transfer, swap, stake, lend). Read-only tools (balance, price, list) bypass guardrails entirely.
+
+| Guardrail | What it does | Default |
+|---|---|---|
+| **Spending limit (per tx)** | Blocks any single transaction exceeding a SOL threshold | 1.0 SOL |
+| **Spending limit (daily)** | Blocks when rolling 24h spend total would be exceeded | 5.0 SOL |
+| **Balance floor** | Prevents wallet from dropping below a minimum SOL balance (for fees) | 0.05 SOL |
+| **Drain protection** | Blocks if a single tx would move >X% of total wallet SOL | 50% |
+| **Rate limiting** | Max on-chain transactions per minute per wallet | 10/min |
+| **Slippage cap** | Hard maximum slippage for swaps, regardless of agent request | 500 bps (5%) |
+| **Token validation** | Only allows swaps involving Jupiter-verified tokens | Enabled |
+| **Address blocklist** | Blocks transfers to known-bad addresses | Empty |
+| **Address allowlist** | If set, only permits transfers to these addresses | Empty |
+
+If a guardrail blocks your action, the response will include the rule name and reason. You should adjust your parameters and retry.
+
+---
+
 ## Example Workflows
 
 ### Fund Wallet & Trade

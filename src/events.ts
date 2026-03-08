@@ -13,9 +13,11 @@ export interface ToolEvent {
   timestamp: string;
   tool: string;
   wallet: string; // first 8 chars of wallet ID, or "none"
-  status: "success" | "error";
+  status: "success" | "error" | "blocked";
   durationMs: number;
   summary: string;
+  /** Which guardrail rule blocked the action (only when status=blocked). */
+  blockedBy?: string;
   source: "rest" | "mcp";
 }
 

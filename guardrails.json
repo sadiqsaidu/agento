@@ -1,0 +1,23 @@
+{
+  "enabled": true,
+  "spendingLimits": {
+    "perTransactionSol": 1.0,
+    "dailyTotalSol": 5.0
+  },
+  "balanceFloorSol": 0.05,
+  "maxSlippageBps": 500,
+  "drainProtection": {
+    "maxPercentPerTx": 50
+  },
+  "rateLimit": {
+    "maxPerMinute": 10
+  },
+  "tokenValidation": {
+    "onlyVerifiedTokens": true
+  },
+  "addressRules": {
+    "allowlist": [],
+    "blocklist": [],
+    "flagUnknown": false
+  }
+}
