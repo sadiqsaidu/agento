@@ -11,7 +11,7 @@
     "isolatedModules": true,
     "outDir": "dist",
     "rootDir": ".",
-    "noEmit": true
+    "declaration": true
   },
   "include": ["src/**/*", "demo/**/*"],
   "exclude": ["node_modules", "dist"]

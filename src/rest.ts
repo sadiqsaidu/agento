@@ -14,6 +14,7 @@
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { streamSSE } from "hono/streaming";
+import { cors } from "hono/cors";
 import { loadConfig } from "./config.js";
 import { createKeystore } from "./wallet.js";
 import { ALL_TOOLS, type ToolContext } from "./tools.js";
@@ -29,6 +30,8 @@ const config = loadConfig();
 const keystore = createKeystore(config);
 
 const app = new Hono();
+
+app.use("*", cors());
 
 // ─── Health check ───
 

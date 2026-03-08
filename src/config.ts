@@ -9,6 +9,7 @@ const schema = z.object({
 
   OPENROUTER_API_KEY: z.string().optional().default(""),
   JUPITER_API_KEY: z.string().optional().default(""),
+  PORT: z.coerce.number().optional(),
   REST_PORT: z.coerce.number().default(3000),
   KEYSTORE_DIR: z.string().default("./wallets"),
 });
@@ -24,5 +25,8 @@ export function loadConfig(): Config {
     console.error(`Invalid configuration:\n${missing}`);
     process.exit(1);
   }
-  return result.data;
+  const data = result.data;
+  // Render sets PORT, local dev uses REST_PORT
+  if (data.PORT) data.REST_PORT = data.PORT;
+  return data;
 }

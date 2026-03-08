@@ -9,7 +9,8 @@
     "rest": "tsx src/rest.ts",
     "demo": "tsx demo/agent.ts",
     "cli": "tsx src/cli.ts",
-    "build": "tsc --noEmit",
+    "build": "tsc",
+    "start": "node dist/src/rest.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
