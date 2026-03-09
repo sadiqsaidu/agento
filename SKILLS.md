@@ -1,12 +1,12 @@
 # Agento — Agent Skills
 
 You are connected to **Agento**, an agentic wallet service for Solana.
-Agento gives you autonomous access to a Solana wallet and DeFi protocols.
+You have autonomous access to a Solana wallet and DeFi protocols.
 You can create wallets, hold tokens, sign transactions, swap, stake, lend, and more — all without human intervention.
 
 ---
 
-## Available Tools
+## Tools
 
 ### Wallet Management
 
@@ -29,7 +29,7 @@ You can create wallets, hold tokens, sign transactions, swap, stake, lend, and m
 |------|-------------|
 | `swap_tokens` | Swap any token pair via Jupiter aggregator. Specify output mint and input amount. |
 | `fetch_token_price` | Get the current USD price of any token by mint address. |
-| `create_limit_order` | Place a limit order on Jupiter. Executes automatically at target price. |
+| `create_limit_order` | Place a limit order on Jupiter. Executes automatically at target price. Uses raw units (lamports / smallest unit). |
 | `cancel_limit_orders` | Cancel one or more open limit orders by their public keys. |
 | `get_open_orders` | View all pending limit orders for your wallet. |
 
@@ -37,18 +37,18 @@ You can create wallets, hold tokens, sign transactions, swap, stake, lend, and m
 
 | Tool | Description |
 |------|-------------|
-| `stake_sol` | Liquid-stake SOL for jupSOL. jupSOL is yield-bearing — you earn staking rewards while keeping liquidity. |
+| `stake_sol` | Liquid-stake SOL for jupSOL. Yield-bearing — staking rewards accrue while keeping liquidity. |
 
 ### DeFi — Lulo Lending
 
 | Tool | Description |
 |------|-------------|
-| `lend_asset` | Lend tokens via Lulo to earn yield. Lulo aggregates across Kamino, Drift, MarginFi, and Jupiter for the best rate. |
-| `withdraw_lend` | Withdraw previously lent assets from Lulo. |
+| `lend_asset` | Lend tokens via Lulo to earn yield. Aggregates across Kamino, Drift, MarginFi, and Jupiter for the best rate. Pass `mintAddress` and `amount`. |
+| `withdraw_lend` | Withdraw previously lent assets from Lulo. Pass `mintAddress` and `amount`. |
 
 ---
 
-## Common Token Mints (Solana)
+## Token Mints
 
 | Token | Mint Address |
 |-------|-------------|
@@ -57,74 +57,66 @@ You can create wallets, hold tokens, sign transactions, swap, stake, lend, and m
 | USDT | `Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB` |
 | jupSOL | `jupSoLaHXQiZZTSfEWMTRRgpnyFm8f6sZdosWBjx93v` |
 
----
-
-## Usage Notes
-
-- You are operating on Solana **devnet** by default. All tokens are test tokens with no real value.
-- Use `request_airdrop` to fund your wallet with devnet SOL before attempting any transactions.
-- Always check your balance before attempting transfers or swaps to avoid failures.
-- Transaction signatures (base58 strings) are returned for all on-chain operations — use these for verification on a block explorer.
-- Limit orders on Jupiter execute automatically when the market price reaches your target — no further action needed after placement.
-- Lulo lending aggregates across multiple lending protocols to find the optimal yield. Deposited funds can be withdrawn at any time.
-- When swapping tokens, you only need to specify the output mint and input amount. Input defaults to SOL unless specified.
-- Slippage tolerance defaults to 300 basis points (3%) for swaps. You can override this with the `slippageBps` parameter.
+**Unit reference:** 1 SOL = 1,000,000,000 lamports. 1 USDC = 1,000,000 units (6 decimals).
 
 ---
 
-## Guardrails (Safety Layer)
+## Guidelines
 
-Agento includes a **guardrail engine** that protects your wallet from dangerous or accidental operations. These rules are enforced automatically on all transactional tools (transfer, swap, stake, lend). Read-only tools (balance, price, list) bypass guardrails entirely.
+- You are on Solana **devnet** by default. All tokens are test tokens.
+- Use `request_airdrop` to get free devnet SOL before transacting.
+- Always check your balance before attempting transfers or swaps.
+- Transaction signatures (base58) are returned for all on-chain operations.
+- Limit orders execute automatically when price is reached — no further action needed.
+- Lulo lending aggregates across multiple protocols for optimal yield.
+- Slippage defaults to 300 bps (3%) for swaps. Override with `slippageBps`.
+- For swaps, input defaults to SOL if `inputMint` is omitted.
 
-| Guardrail | What it does | Default |
-|---|---|---|
-| **Spending limit (per tx)** | Blocks any single transaction exceeding a SOL threshold | 1.0 SOL |
-| **Spending limit (daily)** | Blocks when rolling 24h spend total would be exceeded | 5.0 SOL |
-| **Balance floor** | Prevents wallet from dropping below a minimum SOL balance (for fees) | 0.05 SOL |
-| **Drain protection** | Blocks if a single tx would move >X% of total wallet SOL | 50% |
-| **Rate limiting** | Max on-chain transactions per minute per wallet | 10/min |
-| **Slippage cap** | Hard maximum slippage for swaps, regardless of agent request | 500 bps (5%) |
-| **Token validation** | Only allows swaps involving Jupiter-verified tokens | Enabled |
-| **Address blocklist** | Blocks transfers to known-bad addresses | Empty |
-| **Address allowlist** | If set, only permits transfers to these addresses | Empty |
+---
 
-If a guardrail blocks your action, the response will include the rule name and reason. You should adjust your parameters and retry.
+## Guardrails
+
+A safety engine protects against dangerous operations:
+
+| Rule | Default |
+|------|---------|
+| Per-transaction limit | 1.0 SOL |
+| Daily spending limit | 5.0 SOL |
+| Balance floor | 0.05 SOL |
+| Drain protection | 50% max per tx |
+| Rate limit | 10 tx/min |
+| Slippage cap | 5% |
+| Token validation | Jupiter verified only |
+
+If a guardrail blocks your action, the response includes the rule name and reason. Adjust and retry.
 
 ---
 
 ## Example Workflows
 
-### Fund Wallet & Trade
-1. `request_airdrop` → Get 1 SOL on devnet
-2. `get_balance` → Verify the airdrop landed
-3. `fetch_token_price` (SOL mint) → Check current SOL price
-4. `swap_tokens` → Swap 0.5 SOL to USDC
-5. `get_token_balances` → Confirm USDC received
+### Trade
+1. `get_balance` → Check SOL
+2. `fetch_token_price` → Current SOL price
+3. `swap_tokens` → Swap 0.5 SOL to USDC
+4. `get_token_balances` → Confirm USDC received
 
 ### Yield Strategy
-1. `swap_tokens` → Convert some SOL to USDC
-2. `lend_asset` → Lend USDC on Lulo for yield
-3. `stake_sol` → Stake remaining SOL for jupSOL (staking yield)
+1. `swap_tokens` → Convert SOL to USDC
+2. `lend_asset` → Lend USDC on Lulo
+3. `stake_sol` → Stake remaining SOL for jupSOL
 
-### Limit Order Trading
-1. `fetch_token_price` → Get current price of target token
-2. `create_limit_order` → Place a buy order at a lower price
-3. `get_open_orders` → Verify the order was placed
-4. *(order executes automatically when price is reached)*
-
-### Portfolio Monitoring
-1. `get_balance` → Check SOL balance
-2. `get_token_balances` → List all token holdings
-3. `fetch_token_price` for each token → Get USD values
-4. Compute total portfolio value
+### Limit Order
+1. `fetch_token_price` → Get current price
+2. `create_limit_order` → Place buy order at target price
+3. `get_open_orders` → Verify placement
 
 ---
 
-## Connection Methods
+## Connection
 
 Agento exposes tools via two interfaces:
 
-- **MCP (Model Context Protocol)** — stdio transport, ideal for Claude Desktop and LangChain MCP adapters
-- **REST API** — HTTP interface, works with any agent framework (LangChain, Vercel AI SDK, AutoGPT, custom agents)
+- **REST API** — `POST /tools/:name` with `X-Wallet-Id` and `X-Wallet-Password` headers
+- **MCP** — stdio transport for Claude Desktop and LangChain MCP adapters
 
-Both interfaces expose the exact same set of tools.
+Both expose the same 18 tools.

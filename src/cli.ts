@@ -15,41 +15,23 @@ const RED = "\x1b[31m";
 const YELLOW = "\x1b[33m";
 const CYAN = "\x1b[36m";
 const BLUE = "\x1b[34m";
-const MAGENTA = "\x1b[35m";
 
 // ── Arg helpers ──
 
 const args = process.argv.slice(2);
-
-function arg(i: number) {
-  return args[i];
-}
-
-function flag(name: string) {
+const arg = (i: number) => args[i];
+const flag = (name: string) => {
   const i = args.indexOf(`--${name}`);
   return i !== -1 && i + 1 < args.length ? args[i + 1] : undefined;
-}
-
-// ── Output helpers ──
+};
 
 const log = console.log;
-
-function ok(msg: string) {
-  log(`${GREEN}✅ ${msg}${R}`);
-}
-
-function fail(msg: string): never {
-  log(`${RED}❌ ${msg}${R}`);
-  process.exit(1);
-}
-
-function info(msg: string) {
-  log(`${CYAN}ℹ  ${msg}${R}`);
-}
+const ok = (msg: string) => log(`${GREEN}✅ ${msg}${R}`);
+const fail = (msg: string): never => { log(`${RED}❌ ${msg}${R}`); process.exit(1); };
 
 // ── Banner ──
 
-const VERSION = "0.1.1";
+const VERSION = "0.2.0";
 
 function banner() {
   log(`
@@ -82,17 +64,10 @@ async function main() {
   }
 
   switch (command) {
-    case "wallet":
-      await handleWallet(arg(1));
-      break;
-    case "serve":
-      await handleServe(arg(1));
-      break;
-    case "monitor":
-      await handleMonitor();
-      break;
-    default:
-      fail(`Unknown command: ${command}\n   Run 'agento help' for usage.`);
+    case "wallet": await handleWallet(arg(1)); break;
+    case "serve": await handleServe(arg(1)); break;
+    case "monitor": await handleMonitor(); break;
+    default: fail(`Unknown command: ${command}\n   Run 'agento help' for usage.`);
   }
 }
 
@@ -107,7 +82,7 @@ async function handleWallet(sub: string | undefined) {
 
   switch (sub) {
     case "create": {
-      if (!password) fail("Password required: --password <pw> or AGENTO_PASSWORD env");
+      if (!password) fail("Password required: --password <pw>");
       const { id, address } = keystore.create(password);
       log(`\n${B}Wallet Created${R}\n`);
       log(`  ${D}ID:${R}      ${id}`);
@@ -121,7 +96,7 @@ async function handleWallet(sub: string | undefined) {
       const wallets = keystore.list();
       log(`\n${B}Wallets (${wallets.length})${R}\n`);
       if (wallets.length === 0) {
-        info("No wallets. Create one: agento wallet create --password <pw>");
+        log(`  ${D}No wallets. Create one: agento wallet create --password <pw>${R}`);
         return;
       }
       for (const w of wallets) {
@@ -161,7 +136,7 @@ async function handleWallet(sub: string | undefined) {
       if (!password) fail("Password required");
       const kp = keystore.unlock(id, password);
       const conn = new Connection(config.SOLANA_RPC_URL, "confirmed");
-      info("Requesting devnet airdrop (1 SOL)...");
+      log(`\n  ${D}Requesting devnet airdrop (1 SOL)...${R}`);
       const sig = await conn.requestAirdrop(kp.publicKey, LAMPORTS_PER_SOL);
       const bh = await conn.getLatestBlockhash();
       await conn.confirmTransaction(
@@ -223,8 +198,9 @@ async function handleServe(sub: string | undefined) {
     }
     case "mcp": {
       const wallet = flag("wallet") || process.env.WALLET_ID || "";
-      const pw = flag("password") || process.env.WALLET_PASSWORD || "agento";
-      if (!wallet) fail("Wallet ID required: --wallet <id> or WALLET_ID env");
+      const pw = flag("password") || process.env.WALLET_PASSWORD || "";
+      if (!wallet) fail("Wallet ID required: --wallet <id>");
+      if (!pw) fail("Password required: --password <pw>");
       process.env.WALLET_ID = wallet;
       process.env.WALLET_PASSWORD = pw;
       await import("./mcp.js");
@@ -240,12 +216,12 @@ async function handleServe(sub: string | undefined) {
 // ═══════════════════════════════════════════════════════
 
 async function handleMonitor() {
-  const host = flag("host") || process.env.AGENTO_HOST || "http://localhost:3000";
+  const host = flag("host") || "http://localhost:3000";
   const url = `${host}/events`;
 
   banner();
   log(`${B}  Live Monitor${R}`);
-  info(`Connecting to ${host}...`);
+  log(`  ${D}Connecting to ${host}...${R}`);
   log(`${D}${"─".repeat(72)}${R}`);
   log(`  ${D}TIME${R}      ${D}ST${R}  ${D}TOOL${R}                   ${D}SUMMARY${R}`);
   log(`${D}${"─".repeat(72)}${R}\n`);
@@ -261,10 +237,7 @@ async function handleMonitor() {
 
     while (true) {
       const { done, value } = await reader.read();
-      if (done) {
-        info("Server closed connection.");
-        break;
-      }
+      if (done) { log(`\n  ${D}Server closed connection.${R}`); break; }
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
@@ -273,9 +246,7 @@ async function handleMonitor() {
         if (!line.startsWith("data: ")) continue;
         const data = line.slice(6).trim();
         if (!data) continue;
-        try {
-          printEvent(JSON.parse(data) as ToolEvent);
-        } catch { /* skip non-JSON keepalives */ }
+        try { printEvent(JSON.parse(data) as ToolEvent); } catch {}
       }
     }
   } catch (err: any) {
@@ -299,6 +270,39 @@ function printEvent(e: ToolEvent) {
   log(`  ${D}${time}${R}  ${icon}  ${tool} ${e.summary.padEnd(36)} ${ms} ${wallet}`);
 }
 
+// ── Help ──
+
+function printHelp() {
+  log(`  ${CYAN}agento${R} <command> [options]
+
+  ${B}Wallet${R}
+    ${CYAN}wallet create${R}  --password <pw>            ${D}Create encrypted wallet${R}
+    ${CYAN}wallet list${R}                               ${D}List all wallets${R}
+    ${CYAN}wallet info${R}    <id> --password <pw>       ${D}Balance + token info${R}
+    ${CYAN}wallet fund${R}    <id> --password <pw>       ${D}Airdrop 1 devnet SOL${R}
+    ${CYAN}wallet import${R}  <key> --password <pw>      ${D}Import base58 private key${R}
+    ${CYAN}wallet export${R}  <id> --password <pw>       ${D}Export private key${R}
+    ${CYAN}wallet delete${R}  <id>                       ${D}Remove wallet${R}
+
+  ${B}Server${R}
+    ${CYAN}serve rest${R}  [--port 3000]                 ${D}Start REST API + dashboard${R}
+    ${CYAN}serve mcp${R}   --wallet <id> --password <pw> ${D}Start MCP server (stdio)${R}
+
+  ${B}Monitor${R}
+    ${CYAN}monitor${R} [--host http://localhost:3000]    ${D}Live-tail agent activity${R}
+
+  ${B}Examples${R}
+    ${D}$${R} agento wallet create --password my-secret
+    ${D}$${R} agento wallet fund <id> --password my-secret
+    ${D}$${R} agento serve rest
+    ${D}$${R} agento monitor
+`);
+}
+
+main().catch((err) => {
+  console.error("Fatal:", err.message || err);
+  process.exit(1);
+});
 // ── Help ──
 
 function printHelp() {

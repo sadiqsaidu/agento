@@ -2,347 +2,242 @@
 
 **Agentic wallet infrastructure for AI agents on Solana.**
 
-Agento is a wallet service that gives AI agents autonomous access to Solana DeFi — swapping tokens on Jupiter, placing limit orders, liquid staking SOL, lending via Lulo, and more. Any AI agent (Claude, GPT, Gemini, local models) can connect via **MCP** or **REST** and start transacting.
+Agento gives AI agents autonomous access to Solana wallets and DeFi — creating wallets, signing transactions, swapping tokens, staking, lending, and placing limit orders. Any AI agent connects via **REST** or **MCP** and starts transacting. No human intervention required.
 
-**Zero bloat.** No solana-agent-kit. Just `@solana/web3.js`, `@solana/spl-token`, and direct HTTP calls to Jupiter/Lulo APIs. 8 source files, 209 npm packages total.
+Built with `@solana/web3.js`, `@solana/spl-token`, and direct API calls to Jupiter and Lulo. No solana-agent-kit. 8 source files, ~2,100 lines of TypeScript.
+
+<!-- 📸 Screenshot: terminal showing `agento serve rest` startup with the ASCII banner -->
 
 ---
 
 ## Features
 
-### 18 Tools
+**18 DeFi Tools** — wallet management, Jupiter swaps, limit orders, liquid staking (jupSOL), and Lulo lending.
 
-| Category | Tools |
-|----------|-------|
-| **Wallet** | `create_wallet` · `get_wallet_address` · `get_balance` · `get_token_balances` · `transfer` · `list_wallets` · `request_airdrop` · `import_wallet` · `export_wallet` · `delete_wallet` |
-| **Jupiter Trading** | `swap_tokens` · `fetch_token_price` · `create_limit_order` · `cancel_limit_orders` · `get_open_orders` |
-| **Jupiter Staking** | `stake_sol` (SOL → jupSOL) |
-| **Lulo Lending** | `lend_asset` · `withdraw_lend` |
+**Encrypted Keystore** — AES-256-GCM + scrypt. Ethereum Web3 Secret Storage V3 adapted for Solana. Keys never leave the encrypted store unless unlocked with a password.
 
-### Dual Interface
+**Guardrails Engine** — 9 safety rules (spending limits, drain protection, rate limiting, slippage caps, token validation) enforced on every transaction. Configurable via `guardrails.json`.
 
-- **MCP (Model Context Protocol)** — stdio transport for Claude Desktop, LangChain MCP adapters
-- **REST API** — HTTP interface for any agent framework (LangChain, Vercel AI SDK, AutoGPT, custom agents, Python, etc.)
+**Dual Interface** — REST API and MCP (Model Context Protocol) expose the same 18 tools. Any LLM, any framework.
 
-Both interfaces expose the exact same 18 tools.
+**Real-Time Monitoring** — live dashboard at `/dashboard`, CLI monitor via `agento monitor`, and SSE event stream.
 
-### Encrypted Keystore
-
-- **AES-256-GCM** encryption with **scrypt** KDF (N=2¹⁸, r=8, p=1)
-- Ethereum Web3 Secret Storage V3 format adapted for Solana
-- Keys never leave the encrypted keystore unless unlocked with a password
-- No private keys held in memory longer than needed
-
-### Guardrails Engine
-
-9 configurable safety rules enforced on every transactional operation:
-
-| Rule | Default |
-|------|---------|
-| Per-transaction spending limit | 1.0 SOL |
-| Daily spending limit (rolling 24h) | 5.0 SOL |
-| Balance floor (reserve for fees) | 0.05 SOL |
-| Drain protection (max % per tx) | 50% |
-| Rate limiting (txs per minute) | 10/min |
-| Slippage cap | 500 bps (5%) |
-| Token validation (Jupiter verified only) | Enabled |
-| Address blocklist | Configurable |
-| Address allowlist | Configurable |
-
-Configure via `guardrails.json` at the project root.
-
-### Real-Time Monitoring
-
-- **Dashboard** — built-in dark-themed web dashboard at `/dashboard` with live SSE activity feed
-- **CLI Monitor** — `agento monitor` live-tails events in your terminal
-- **SSE Endpoint** — `GET /events` streams events to any client
-
-### CLI
-
-```
-agento wallet create --password <pw>     Create encrypted wallet
-agento wallet list                       List all wallets
-agento wallet info <id> --password <pw>  Balance + token info
-agento wallet fund <id> --password <pw>  Airdrop 1 devnet SOL
-agento serve rest                        Start REST API + dashboard
-agento serve mcp --wallet <id>           Start MCP server (stdio)
-agento monitor                           Live-tail agent activity
-```
+**Multi-Agent Ready** — each agent gets its own wallet. Run multiple agents independently against one Agento instance.
 
 ---
 
 ## Quick Start
 
-### Prerequisites
-
-- **Node.js ≥ 22**
-- A Solana RPC URL (default: devnet)
-
-### Option 1: npm (recommended)
-
-```bash
-# Run directly with npx
-npx @onetutuone/agento serve rest
-
-# Or install globally
-npm install -g @onetutuone/agento
-agento serve rest
-```
-
-Open [http://localhost:3000/dashboard](http://localhost:3000/dashboard) to see the dashboard.
-
-### Option 2: From Source
-
 ```bash
 git clone https://github.com/sadiqsaidu/agento.git
 cd agento
 npm install
-cp .env.example .env   # Edit with your keys
+cp .env.example .env
 npm run build
-npm start
 ```
 
-### Create Your First Wallet
+### Create a wallet and fund it
 
 ```bash
-# Via CLI
-agento wallet create --password my-secret
-
-# Via REST
-curl -X POST http://localhost:3000/wallets \
-  -H 'Content-Type: application/json' \
-  -d '{"password": "my-secret"}'
+npx agento wallet create --password my-secret
+npx agento wallet fund <wallet-id> --password my-secret
 ```
 
-### Fund It (Devnet)
+<!-- 📸 Screenshot: terminal output of wallet create + fund commands -->
+
+### Start the server
 
 ```bash
-# Via CLI
-agento wallet fund <wallet-id> --password my-secret
+npx agento serve rest
+```
 
-# Via REST
-curl -X POST http://localhost:3000/tools/request_airdrop \
-  -H 'Content-Type: application/json' \
-  -H 'X-Wallet-Id: <wallet-id>' \
-  -H 'X-Wallet-Password: my-secret' \
-  -d '{"amount": 2}'
+Open [http://localhost:3000/dashboard](http://localhost:3000/dashboard) to see the dashboard.
+
+<!-- 📸 Screenshot: dashboard in the browser -->
+
+### Monitor agent activity
+
+In a separate terminal:
+
+```bash
+npx agento monitor
+```
+
+<!-- 📸 Screenshot: CLI monitor with live events -->
+
+---
+
+## CLI Reference
+
+```
+agento wallet create  --password <pw>       Create encrypted wallet
+agento wallet list                          List all wallets
+agento wallet info    <id> --password <pw>  Balance + token info
+agento wallet fund    <id> --password <pw>  Airdrop 1 devnet SOL
+agento wallet import  <key> --password <pw> Import base58 private key
+agento wallet export  <id> --password <pw>  Export private key
+agento wallet delete  <id>                  Remove wallet
+
+agento serve rest  [--port 3000]            Start REST API + dashboard
+agento serve mcp   --wallet <id> --password <pw>  Start MCP server (stdio)
+
+agento monitor [--host http://localhost:3000]  Live-tail agent activity
 ```
 
 ---
 
-## Configuration
+## Connecting an Agent
 
-### Environment Variables
+Agento is a service your agent connects to — not a library you import. Your agent reads the tools from `SKILLS.md` (or `GET /tools`) and calls `POST /tools/:name` with wallet credentials in headers.
 
-Create a `.env` file (or set environment variables):
-
-```env
-SOLANA_RPC_URL=https://api.devnet.solana.com   # Solana RPC endpoint
-REST_PORT=3000                                  # REST server port
-KEYSTORE_DIR=./wallets                          # Where encrypted wallets are stored
-JUPITER_API_KEY=                                # Optional: free tier at portal.jup.ag
-OPENROUTER_API_KEY=sk-or-v1-...                # For demo agent only
-```
-
-### Guardrails
-
-Edit `guardrails.json` to customize safety limits:
-
-```json
-{
-  "enabled": true,
-  "spendingLimits": {
-    "perTransactionSol": 1.0,
-    "dailyTotalSol": 5.0
-  },
-  "balanceFloorSol": 0.05,
-  "drainProtection": { "maxPercentPerTx": 50 },
-  "rateLimit": { "maxPerMinute": 10 },
-  "maxSlippageBps": 500,
-  "tokenValidation": { "onlyVerifiedTokens": true },
-  "addressRules": {
-    "allowlist": [],
-    "blocklist": [],
-    "flagUnknown": false
-  }
-}
-```
-
-Read-only tools (balance, price, list) bypass guardrails. Only transactional tools (transfer, swap, stake, lend) are checked.
-
----
-
-## REST API Reference
+### REST API
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/health` | Health check |
-| `GET` | `/tools` | List all available tools |
-| `POST` | `/tools/:name` | Execute a tool (body = tool input JSON) |
-| `POST` | `/wallets` | Create a new wallet |
-| `GET` | `/wallets` | List all wallets |
-| `GET` | `/events` | Server-Sent Events stream |
+| `GET` | `/tools` | List all 18 tools |
+| `POST` | `/tools/:name` | Execute a tool |
+| `POST` | `/wallets` | Create wallet |
+| `GET` | `/wallets` | List wallets |
+| `GET` | `/events` | SSE event stream |
 | `GET` | `/dashboard` | Web dashboard |
 
-### Authentication
-
-Tool execution requires wallet credentials via headers:
+**Authentication** — every tool call requires:
 
 ```
 X-Wallet-Id: <wallet-uuid>
 X-Wallet-Password: <password>
 ```
 
-### Examples
+**Example — check balance:**
 
-**Check balance:**
 ```bash
 curl -X POST http://localhost:3000/tools/get_balance \
   -H 'Content-Type: application/json' \
-  -H 'X-Wallet-Id: 574a67d8-...' \
+  -H 'X-Wallet-Id: <wallet-id>' \
   -H 'X-Wallet-Password: my-secret' \
   -d '{}'
 ```
 
-**Fetch SOL price:**
-```bash
-curl -X POST http://localhost:3000/tools/fetch_token_price \
-  -H 'Content-Type: application/json' \
-  -d '{"mint": "So11111111111111111111111111111111111111112"}'
-```
+**Example — swap SOL for USDC:**
 
-**Swap SOL → USDC:**
 ```bash
 curl -X POST http://localhost:3000/tools/swap_tokens \
   -H 'Content-Type: application/json' \
-  -H 'X-Wallet-Id: 574a67d8-...' \
+  -H 'X-Wallet-Id: <wallet-id>' \
   -H 'X-Wallet-Password: my-secret' \
-  -d '{"outputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "inputAmount": 0.5}'
+  -d '{"outputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "inputAmount": 0.1}'
 ```
 
-**Stream events:**
-```bash
-curl -N http://localhost:3000/events
-```
+### MCP (Claude Desktop)
 
----
-
-## MCP Server (Claude Desktop / LangChain)
-
-### Claude Desktop
-
-Add to your `claude_desktop_config.json`:
+Add to `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "agento": {
-      "command": "npx",
-      "args": ["@onetutuone/agento", "serve", "mcp", "--wallet", "<wallet-id>", "--password", "<password>"],
+      "command": "node",
+      "args": ["<path-to-agento>/dist/src/mcp.js"],
       "env": {
-        "SOLANA_RPC_URL": "https://api.devnet.solana.com"
+        "SOLANA_RPC_URL": "https://api.devnet.solana.com",
+        "WALLET_ID": "<wallet-id>",
+        "WALLET_PASSWORD": "<password>"
       }
     }
   }
 }
 ```
 
-### From Source
+---
+
+## Demo: Single Agent
+
+A LangGraph agent that tests all DeFi features — swaps, staking, limit orders, and lending.
 
 ```bash
-WALLET_ID=<id> WALLET_PASSWORD=<pw> npx tsx src/mcp.ts
+# 1. Add to your .env:
+#    WALLET_ID=<your-wallet-id>
+#    WALLET_PASSWORD=<your-password>
+#    OPENROUTER_API_KEY=<your-key>
+
+# 2. Start the server
+npx agento serve rest
+
+# 3. Run the agent (separate terminal)
+npm run demo
 ```
+
+The agent auto-discovers all 18 tools and runs through:
+1. Balance & price checks
+2. Swap SOL → USDC
+3. Stake SOL → jupSOL
+4. Place a limit order, then cancel it
+5. Lend USDC on Lulo, then withdraw
+
+<!-- 📸 Screenshot: demo agent terminal output showing the test results -->
 
 ---
 
-## Python Agent Example
+## Demo: Multiple Agents
 
-A standalone Python agent demo is included in `examples/python-agent/`. It connects to any Agento REST deployment, auto-discovers all 18 tools, and lets an LLM manage wallets autonomously.
+Three agents, each with their own wallet, running DeFi strategies in parallel:
+
+- **Trader** — swaps SOL for USDC
+- **Staker** — stakes SOL for jupSOL
+- **Lender** — swaps SOL → USDC → lends on Lulo
 
 ```bash
-cd examples/python-agent
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env  # Add your OPENROUTER_API_KEY
+# 1. Create 3 wallets
+npx agento wallet create --password pw1
+npx agento wallet create --password pw2
+npx agento wallet create --password pw3
 
-# Default task
-python agent.py
+# 2. Fund each wallet (~2 SOL each)
+npx agento wallet fund <id1> --password pw1
+npx agento wallet fund <id1> --password pw1
+npx agento wallet fund <id2> --password pw2
+npx agento wallet fund <id2> --password pw2
+npx agento wallet fund <id3> --password pw3
+npx agento wallet fund <id3> --password pw3
 
-# Custom task
-python agent.py "swap 0.1 SOL for USDC"
+# 3. Add to .env:
+#    AGENT1_WALLET_ID=<id1>
+#    AGENT1_PASSWORD=pw1
+#    AGENT2_WALLET_ID=<id2>
+#    AGENT2_PASSWORD=pw2
+#    AGENT3_WALLET_ID=<id3>
+#    AGENT3_PASSWORD=pw3
+#    OPENROUTER_API_KEY=<your-key>
 
-# Interactive mode
-python agent.py -i
+# 4. Run
+npx agento serve rest       # Terminal 1
+npx agento monitor          # Terminal 2
+npm run demo:multi           # Terminal 3
 ```
 
-The agent auto-discovers tools from the live API — no Agento SDK required. Just HTTP.
+Watch all three agents' activity appear simultaneously in the monitor and dashboard.
 
-```
-🌐 Agento: https://agento-8m72.onrender.com
-🧠 Model:  openai/gpt-4o-mini
-✅ Agento is reachable.
-🔧 Discovered 18 tools.
-
-🎯 Task: Create a new wallet, airdrop 2 SOL, then check the balance.
-
-  🔧 create_wallet({})
-  ✅ {"success":true,"result":{"wallet_id":"38ab230d-...","address":"3dWF..."}}
-  🔧 request_airdrop({"amount": 2})
-  ✅ {"success":true,"result":{"signature":"4Vu8...","amount":2}}
-  🔧 get_balance({})
-  ✅ {"success":true,"result":{"address":"3dWF...","balance_sol":2}}
-
-🤖 Done! Created wallet, airdropped 2 SOL, balance confirmed.
-```
+<!-- 📸 Screenshot: agento monitor showing interleaved events from all 3 agents -->
 
 ---
 
-## LangChain Agent Example
+## Guardrails
 
-A LangChain + OpenRouter demo agent is included in `demo/agent.ts`:
+Safety rules enforced on every transaction. Configure in `guardrails.json`:
 
-```bash
-# Set WALLET_ID in .env first
-npx tsx demo/agent.ts "Show my wallet address, check the balance, and fetch the SOL price"
-```
+| Rule | Default |
+|------|---------|
+| Per-transaction limit | 1.0 SOL |
+| Daily spending limit | 5.0 SOL |
+| Balance floor | 0.05 SOL |
+| Drain protection | 50% max per tx |
+| Rate limit | 10 tx/min |
+| Slippage cap | 500 bps (5%) |
+| Token validation | Jupiter verified only |
+| Address blocklist/allowlist | Configurable |
 
----
-
-## Hosted Deployment
-
-A live instance is running on Render:
-
-- **API:** `https://agento-8m72.onrender.com`
-- **Dashboard:** `https://agento-8m72.onrender.com/dashboard`
-- **Health:** `https://agento-8m72.onrender.com/health`
-
-Point any agent at the hosted URL to start using it immediately:
-
-```bash
-# Python
-AGENTO_URL=https://agento-8m72.onrender.com python agent.py
-
-# CLI monitor
-agento monitor --host https://agento-8m72.onrender.com
-```
-
-### Self-Hosting
-
-A `render.yaml` is included for one-click Render deployment. Works on any platform that runs Node.js:
-
-```bash
-# Render / Railway / Fly.io
-npm install && npm run build && npm start
-
-# Docker (bring your own Dockerfile)
-FROM node:22-slim
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --production
-COPY dist/ dist/
-COPY guardrails.json .
-CMD ["npm", "start"]
-```
+Read-only tools bypass guardrails. Only transactional tools are checked.
 
 ---
 
@@ -351,49 +246,29 @@ CMD ["npm", "start"]
 ```
 agento/
 ├── src/
-│   ├── cli.ts          # CLI with ASCII banner (wallet/serve/monitor commands)
-│   ├── config.ts       # Env validation (Zod)
+│   ├── cli.ts          # CLI (wallet, serve, monitor commands)
+│   ├── config.ts       # Environment config (Zod)
 │   ├── keystore.ts     # AES-256-GCM encrypted wallet storage
 │   ├── wallet.ts       # Keypair + Connection manager
-│   ├── tools.ts        # 18 tool definitions (Jupiter, Lulo, wallet ops)
+│   ├── tools.ts        # 18 tool definitions
 │   ├── guardrails.ts   # 9 safety rules engine
 │   ├── events.ts       # Event bus + SSE broadcasting
-│   ├── mcp.ts          # MCP server (stdio transport)
-│   ├── rest.ts         # REST server (Hono) + dashboard
-│   └── dashboard.html  # Built-in web dashboard
+│   ├── mcp.ts          # MCP server (stdio)
+│   ├── rest.ts         # REST server (Hono)
+│   └── dashboard.html  # Web dashboard
 ├── demo/
-│   └── agent.ts        # LangChain ReAct demo agent
-├── examples/
-│   └── python-agent/   # Standalone Python agent demo
-├── guardrails.json     # Safety rule configuration
-├── SKILLS.md           # Agent-facing tool documentation
+│   ├── agent.ts        # Single-agent demo
+│   └── multi-agent.ts  # Multi-agent demo
+├── guardrails.json     # Safety configuration
+├── SKILLS.md           # Agent-readable tool documentation
 ├── DEEP_DIVE.md        # Technical deep dive
-├── render.yaml         # Render deployment config
-├── package.json
-└── tsconfig.json
+└── .env.example        # Environment template
 ```
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Runtime | Node.js 22, TypeScript (strict, ESM) |
-| Solana | @solana/web3.js, @solana/spl-token |
-| DeFi | Jupiter REST API (swap, limit orders, staking), Lulo/Flexlend (lending), DexScreener (prices) |
-| MCP | @modelcontextprotocol/sdk (stdio transport) |
-| REST | Hono + @hono/node-server |
-| Encryption | Node.js crypto (scrypt + AES-256-GCM) |
-| Validation | Zod |
-| Python Demo | openai + httpx (OpenRouter) |
-
----
 
 ## Common Token Mints
 
-| Token | Mint Address |
-|-------|-------------|
+| Token | Mint |
+|-------|------|
 | SOL | `So11111111111111111111111111111111111111112` |
 | USDC | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
 | USDT | `Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB` |

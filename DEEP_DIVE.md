@@ -1,77 +1,77 @@
-# Building Agento: Phantom for AI Agents on Solana
+# Building Agento: What If Your AI Agent Had Its Own Wallet?
 
-*How I built a zero-dependency agentic wallet service that gives AI agents autonomous access to Solana DeFi — swaps, limit orders, staking, lending, and more.*
-
----
-
-> **TL;DR** — Agento is a wallet infrastructure layer that lets any AI agent (Claude, GPT, Gemini, local models) manage Solana wallets and execute DeFi operations through two interfaces: MCP (Model Context Protocol) and REST. No solana-agent-kit. No bloat. 8 source files, 209 npm packages, 18 tools.
+*I built a wallet service that gives AI agents autonomous access to Solana DeFi — encrypted keystores, swaps, staking, lending, guardrails, and real-time monitoring. Here's exactly how it works.*
 
 ---
 
-## The Problem
-
-AI agents are getting good at *reasoning*. They can plan multi-step tasks, call tools, and adapt to failures. But the moment you want an agent to interact with a blockchain, things fall apart.
-
-The existing options are:
-
-1. **solana-agent-kit** — a monolithic SDK that drags in 1,300+ npm packages, has constant ESM/CJS compatibility issues, and tries to do everything from NFT minting to Metaplex operations. If all you need is wallet management and DeFi, you're importing a small country.
-
-2. **Build from scratch every time** — every new agent project re-implements wallet creation, transaction signing, and Jupiter integration. Copy-paste engineering across projects.
-
-3. **Custodial APIs** — hand your keys to a third party. No thanks.
-
-What I wanted was something that doesn't exist yet: a clean, focused wallet *service* that any agent can connect to — regardless of what LLM it's running or what framework it uses.
-
-<!-- 📸 IMAGE: Screenshot of `npm ls` showing the small dependency tree (209 packages) vs SAK's 1300+ -->
+> **TL;DR** — Agento is a local wallet infrastructure layer that lets any AI agent (Claude, GPT, Gemini, local models) create wallets, sign transactions, and execute DeFi operations on Solana. It exposes 18 tools through REST and MCP, uses AES-256-GCM encrypted storage, and ships with a guardrail engine so your agent can't drain itself. 8 source files. No solana-agent-kit.
 
 ---
 
-## The Design: A Wallet Service, Not an SDK
+## The Problem Nobody's Really Solving
 
-The key insight is separating the **wallet infrastructure** from the **agent logic**.
+AI agents can reason, plan, and call tools. But what happens when you want an agent to *hold money* and *make financial decisions*?
 
-Agento is not a library you import into your agent. It's a service your agent *connects to*. This matters because:
+The options today are bad:
 
-- **Any LLM works.** Claude, GPT-4, Gemini, Llama, whatever local model you're running. If it can call functions, it can use Agento.
-- **Any framework works.** LangChain, Vercel AI SDK, AutoGPT, raw OpenAI function calling, or a 50-line Python script. It's just HTTP.
-- **Keys stay isolated.** The agent process never holds private keys. The wallet service handles all cryptographic operations.
-- **Multiple agents can share one service.** Deploy it once, point your agents at it.
+**Option 1: solana-agent-kit.** A monolithic SDK that pulls in 1,300+ npm packages, has persistent ESM/CJS compatibility issues, and bundles everything from NFT minting to Metaplex. If all you need is wallets and DeFi, you're importing a freight train to carry a briefcase.
 
-Agento exposes the same 18 tools through two interfaces:
+**Option 2: Build from scratch.** Every agent project re-implements wallet creation, transaction signing, Jupiter integration. The same 500 lines of boilerplate, copied between repos, each with its own subtle bugs.
 
-- **MCP (Model Context Protocol)** — stdio transport. Ideal for Claude Desktop and LangChain MCP adapters. The agent spawns Agento as a subprocess and communicates over stdin/stdout.
-- **REST API** — standard HTTP. Works with literally anything. Create wallets, execute tools, stream events via SSE.
+**Option 3: Custodial APIs.** Hand your keys to a third party and hope for the best. In crypto. Not ideal.
 
-<!-- 📸 IMAGE: Diagram showing Agent → Agento (MCP or REST) → Solana, with the dual-interface clearly illustrated -->
+What I wanted was something that doesn't exist: a clean, focused wallet *service* that any agent can talk to, regardless of which LLM or framework it uses. Something you clone, run, and point your agents at.
+
+So I built Agento.
+
+<!-- 📸 IMAGE: Architecture diagram showing the separation — Agent (LangGraph/Claude/any LLM) → Agento (REST/MCP) → Solana Blockchain + Jupiter + Lulo. Show the "wall" between agent logic and wallet infrastructure. -->
 
 ---
 
-## The Encrypted Keystore
+## The Core Idea: Separate Wallet From Agent
 
-This is the foundation everything else is built on. If the wallet storage isn't right, nothing else matters.
+Most agent-wallet projects conflate two things: the intelligence layer (LLM, reasoning, planning) and the wallet layer (keys, signing, transactions). Agento splits them cleanly.
 
-I adapted the **Ethereum Web3 Secret Storage V3** format for Solana. Each wallet is a JSON file encrypted with:
+Agento is not a library you `import` into your agent. It's a **service** your agent connects to. This separation buys you several things:
 
-- **KDF:** scrypt with N=2¹⁸ (262,144), r=8, p=1 — deliberately expensive to make brute-force attacks impractical
-- **Cipher:** AES-256-GCM with a random 12-byte IV
-- **MAC:** Inherent in GCM's authentication tag — no separate HMAC needed
+- **Any LLM works.** Claude, GPT-4o, Gemini, Llama, DeepSeek — if it can call functions, it can use Agento. Switch models without touching wallet code.
+- **Any framework works.** LangChain, LangGraph, Vercel AI SDK, raw OpenAI function calls, or a 30-line script. It's HTTP.
+- **Keys stay isolated.** The agent process never sees private keys. The wallet service handles all cryptography. A compromised agent can't exfiltrate keys because it never had them.
+- **Multiple agents, one service.** Three agents can each have their own wallet, all managed by one Agento instance. Each authenticates with its own wallet ID and password.
 
-The flow:
+Agento exposes 18 tools through two interfaces:
 
-1. Generate a Solana keypair (`Keypair.generate()`)
-2. Derive a 32-byte encryption key from the user's password using scrypt
-3. Encrypt the 64-byte secret key with AES-256-GCM
-4. Store as `<uuid>.json` in the keystore directory
+- **REST API** — standard HTTP via Hono. `POST /tools/:name` with wallet credentials in headers. Works with any language.
+- **MCP (Model Context Protocol)** — stdio transport for Claude Desktop and native MCP clients. Same tools, different wire format.
 
-To unlock: reverse the process. Scrypt the password → AES-GCM decrypt → reconstruct the Keypair.
+<!-- 📸 IMAGE: Terminal screenshot of Agento starting up — the ASCII banner, 18 tools listed, REST server ready on port 3000. -->
 
-Here's what a wallet file looks like:
+---
+
+## How the Encrypted Keystore Works
+
+If the wallet storage isn't right, nothing else matters. This is the foundation.
+
+I adapted the **Ethereum Web3 Secret Storage V3** format for Solana. It's a battle-tested standard from Ethereum (used by MetaMask, Geth, and every major wallet), transplanted to work with Solana's Ed25519 keypairs. Each wallet becomes a JSON file encrypted with:
+
+- **KDF:** scrypt with N=2¹⁸ (262,144 iterations), r=8, p=1 — deliberately expensive. At these parameters, deriving one key takes ~200ms on modern hardware. An attacker trying to brute-force passwords processes maybe 5 guesses per second per core.
+- **Cipher:** AES-256-GCM with a random 12-byte IV.
+- **Authentication:** GCM's built-in authentication tag — no separate HMAC needed.
+
+The lifecycle of a wallet:
+
+```
+Create:  Keypair.generate() → scrypt(password, salt) → AES-GCM encrypt → UUID.json
+Unlock:  Read UUID.json → scrypt(password, salt) → AES-GCM decrypt → Keypair
+```
+
+A stored wallet looks like this:
 
 ```json
 {
   "version": 3,
   "id": "574a67d8-a1f2-4b3c-9e12-8f0a1b2c3d4e",
-  "address": "6Rx57VKP...",
+  "address": "6Rx57VKPkj3...",
   "crypto": {
     "cipher": "aes-256-gcm",
     "cipherparams": { "iv": "a1b2c3d4e5f6a1b2c3d4e5f6" },
@@ -79,30 +79,29 @@ Here's what a wallet file looks like:
     "authtag": "...",
     "kdf": "scrypt",
     "kdfparams": {
-      "dklen": 32,
-      "n": 262144,
-      "r": 8,
-      "p": 1,
+      "dklen": 32, "n": 262144, "r": 8, "p": 1,
       "salt": "..."
     }
   },
-  "created_at": "2026-03-06T09:27:45.604Z"
+  "created_at": "2025-01-15T09:27:45.604Z"
 }
 ```
 
-Why this approach over alternatives:
+Some deliberate design choices:
 
-- **Why not just store the base58 key?** Because then a file system breach = total loss. With scrypt + AES-256-GCM, an attacker needs the password too.
-- **Why scrypt over argon2?** Node.js `crypto` module ships scrypt natively — zero extra dependencies. Argon2 requires a native addon.
-- **Why GCM over CBC?** GCM provides authenticated encryption. With CBC you need a separate HMAC step, and there's a class of padding oracle attacks. GCM handles integrity + confidentiality in one pass.
+**Why not just store the base58 key?** A file system breach = total loss. With scrypt + AES-256-GCM, an attacker who reads the file still needs the password.
 
-The entire keystore implementation is 175 lines.
+**Why scrypt over argon2?** Node.js ships `scryptSync` natively in the `crypto` module. Zero extra dependencies. Argon2 would require a native C addon, complicating installs. For our use case (wallet encryption, not high-traffic auth), scrypt with N=2¹⁸ is more than sufficient.
 
-<!-- 📸 IMAGE: Code snippet of the encrypt/decrypt functions, or a visual showing the KDF → AES-GCM → JSON flow -->
+**Why GCM over CBC?** GCM is *authenticated encryption* — it handles confidentiality and integrity in one pass. CBC requires a separate HMAC step, and there's an entire class of padding oracle attacks that GCM sidesteps entirely.
+
+The entire keystore — create, import, unlock, list, delete, export — is 175 lines of TypeScript.
+
+<!-- 📸 IMAGE: Visual diagram of the encryption flow: Password → scrypt (with salt) → Derived Key → AES-256-GCM (with IV) → Encrypted Wallet File. Show the components flowing left to right. -->
 
 ---
 
-## The Tool System
+## 18 Tools, Zero SDK Dependencies
 
 Agento ships 18 tools organized into four categories:
 
@@ -113,12 +112,12 @@ Agento ships 18 tools organized into four categories:
 `swap_tokens` · `fetch_token_price` · `create_limit_order` · `cancel_limit_orders` · `get_open_orders`
 
 ### Jupiter Staking (1 tool)
-`stake_sol` — liquid-stake SOL → jupSOL
+`stake_sol` — liquid-stake SOL into jupSOL (yield-bearing)
 
 ### Lulo Lending (2 tools)
-`lend_asset` · `withdraw_lend` — aggregated lending across Kamino, Drift, MarginFi, Jupiter
+`lend_asset` · `withdraw_lend` — aggregated yield across Kamino, Drift, MarginFi, and Jupiter
 
-Each tool is defined with a Zod schema for input validation, a description for the LLM, and an execute function:
+Every tool follows the same pattern — a Zod schema for input validation, a description the LLM reads, and an execute function:
 
 ```typescript
 export const swapTokens: ToolDef = {
@@ -131,48 +130,50 @@ export const swapTokens: ToolDef = {
     slippageBps: z.number().optional(),
   }),
   execute: async (input, ctx) => {
-    // 1. Get quote from Jupiter
-    // 2. Get swap transaction
+    // 1. Get quote from Jupiter API
+    // 2. Build swap transaction
     // 3. Sign with wallet keypair
     // 4. Submit to Solana
-    // 5. Return signature
+    // 5. Return transaction signature
   },
 };
 ```
 
-The `ALL_TOOLS` array is the single source of truth. Both the MCP server and REST server iterate over it to register endpoints. Add a tool to the array, and it's instantly available on both interfaces.
+The `ALL_TOOLS` array is the **single source of truth**. Both the MCP server and REST server iterate over it to register endpoints. Add a tool to the array → instantly available on both interfaces. No duplication, no registration boilerplate.
 
-### No solana-agent-kit
+### Why No solana-agent-kit?
 
-Every API call is direct HTTP. Jupiter quotes? `fetch()` to `api.jup.ag/swap/v1/quote`. Lulo deposits? `fetch()` to `api.flexlend.fi`. Token prices? DexScreener's free API with a Jupiter fallback.
+Every external API call is a direct `fetch()`. Jupiter quotes go to `api.jup.ag/swap/v1/quote`. Lulo deposits go to `api.flexlend.fi`. Token prices hit DexScreener's free API with Jupiter as a fallback.
 
-The entire tool implementation is 584 lines — including every swap, limit order, staking, lending, transfer, and wallet management operation.
+No wrapper SDKs. No abstraction layers. When Jupiter changes an API endpoint, you update one URL string — not an npm dependency tree.
 
-<!-- 📸 IMAGE: Terminal screenshot showing `npx @onetutuone/agento serve rest` starting with the 18 tools listed -->
+The entire tool implementation is 584 lines. That covers every swap, limit order, staking, lending, transfer, and wallet operation Agento supports.
+
+<!-- 📸 IMAGE: Code editor screenshot showing the tools.ts file — the clean structure of a ToolDef with name, schema, and execute function. Focus on the swap_tokens tool as a representative example. -->
 
 ---
 
-## The Guardrails Engine
+## The Guardrails Engine: Why Agents Need Safety Rails
 
-Giving an AI agent autonomous access to a wallet is terrifying without safety rails. Agento includes a guardrail engine that runs *before* every transactional operation.
+Here's what happened the first time I gave an agent autonomous wallet access without guardrails: it tried to swap my entire balance in one transaction. Agents optimize for completing tasks. They don't have a natural sense of "maybe I shouldn't move all the money at once."
 
-The engine enforces 9 safety rules:
+Agento's guardrail engine runs **before** every transactional operation. Read-only tools (balance checks, price queries, listing wallets) bypass it entirely — no point adding latency to a read.
 
-| Rule | What It Does | Default |
-|------|-------------|---------|
-| **Per-tx spending limit** | Blocks any single tx exceeding a SOL threshold | 1.0 SOL |
-| **Daily spending limit** | Blocks when rolling 24h total would exceed limit | 5.0 SOL |
-| **Balance floor** | Prevents wallet from dropping below a minimum (for fees) | 0.05 SOL |
-| **Drain protection** | Blocks if a single tx moves >X% of total balance | 50% |
-| **Rate limiting** | Max on-chain transactions per minute per wallet | 10/min |
-| **Slippage cap** | Hard maximum slippage for swaps, regardless of agent request | 500 bps (5%) |
-| **Token validation** | Only allows swaps involving Jupiter-verified tokens | Enabled |
-| **Address blocklist** | Blocks transfers to known-bad addresses | Empty |
-| **Address allowlist** | If set, only permits transfers to these addresses | Empty |
+Nine rules, all configurable:
 
-The critical thing: read-only tools (balance checks, price queries, listing wallets) bypass guardrails entirely. Only tools that move money get checked.
+| Rule | What It Catches | Default |
+|------|----------------|---------|
+| **Per-tx spending limit** | Single transaction too large | 1.0 SOL |
+| **Daily spending limit** | Rolling 24h total exceeded | 5.0 SOL |
+| **Balance floor** | Would leave wallet too empty for fees | 0.05 SOL |
+| **Drain protection** | Single tx moving too much of total balance | 50% max |
+| **Rate limiting** | Too many transactions too fast | 10/min |
+| **Slippage cap** | Swap slippage too high (front-run risk) | 5% (500 bps) |
+| **Token validation** | Swap involves unverified token | Jupiter verified only |
+| **Address blocklist** | Transfer to known-bad address | Empty |
+| **Address allowlist** | Transfer to non-approved address | Empty (disabled) |
 
-The guardrail config lives in `guardrails.json` at the project root:
+The configuration lives in `guardrails.json`:
 
 ```json
 {
@@ -194,63 +195,53 @@ The guardrail config lives in `guardrails.json` at the project root:
 }
 ```
 
-When a guardrail blocks an action, the event is emitted with `status: "blocked"` so operators can see it in the dashboard and the CLI monitor. The response includes the rule name and a human-readable reason so the agent can understand *why* it was blocked and adjust.
+When a guardrail blocks an action, three things happen:
 
-The entire guardrails engine is 222 lines. No frameworks, no rule engines — just functions.
+1. The tool returns an error with the **rule name** and **human-readable reason** — so the agent can understand *why* and adjust.
+2. An event is emitted with `status: "blocked"` — so the operator sees it in the monitor and dashboard.
+3. The transaction is logged in the in-memory ledger — so future guardrail checks (daily totals, rate limits) have accurate data.
 
-<!-- 📸 IMAGE: Dashboard screenshot showing a blocked event (yellow shield icon) alongside successful events -->
+The entire guardrails engine is 222 lines. No rule engine frameworks. Just functions.
+
+<!-- 📸 IMAGE: Terminal showing a guardrail in action — agent tries to swap too much, gets a "drain_protection" denial, then retries with a smaller amount and succeeds. Show the colored CLI monitor output. -->
 
 ---
 
-## The Event System & Real-Time Monitoring
+## Real-Time Monitoring: Watching Your Agent Think
 
-Every tool execution — success, error, or blocked — emits an event through a central event bus. This powers three things:
-
-1. **CLI Monitor** — `agento monitor` connects via SSE and live-tails events in your terminal
-2. **Dashboard** — a built-in web dashboard at `/dashboard` with real-time updates
-3. **Programmatic access** — `GET /events` returns a Server-Sent Events stream any client can consume
+Every tool execution — success, error, or blocked — emits an event through a central event bus. This is how you watch what your agents are doing.
 
 An event looks like:
 
 ```json
 {
-  "timestamp": "2026-03-09T04:06:35.295Z",
-  "tool": "get_balance",
+  "timestamp": "2025-01-15T04:06:35.295Z",
+  "tool": "swap_tokens",
   "wallet": "e4acef41",
   "status": "success",
   "durationMs": 2491,
-  "summary": "0 SOL",
+  "summary": "Swapped 0.5 → sig:4Vu8kZ2…",
   "source": "rest"
 }
 ```
 
-The event bus buffers the last 500 events, so when a new SSE client connects, it gets recent history immediately — no "staring at a blank screen" problem.
+Three ways to consume events:
 
-<!-- 📸 IMAGE: Side-by-side of the CLI monitor output (terminal with colored emoji) and the web dashboard -->
+**1. CLI Monitor** — `npx agento monitor` connects via SSE and live-tails events with color-coded status and emoji. Green checkmarks for success, red crosses for errors, yellow shields for guardrail blocks.
 
----
+**2. Web Dashboard** — a built-in dark-themed dashboard at `/dashboard` with live activity feed, wallet sidebar, and stats counters. Single HTML file, no build step, no React.
 
-## The Dashboard
+**3. Programmatic** — `GET /events` returns a standard Server-Sent Events stream. Build your own monitoring on top.
 
-Agento ships with a built-in dark-themed dashboard inspired by Phantom wallet's aesthetic. It's a single HTML file (no build step, no React, no framework) served at `/dashboard` when you run the REST server.
+The event bus buffers the last 500 events, so new clients get recent history immediately instead of staring at a blank screen.
 
-Features:
-- **Wallet sidebar** — lists all wallets with truncated addresses and creation dates
-- **Stats bar** — live counters for success/blocked/errors/average response time
-- **Activity feed** — real-time SSE-powered event stream with color-coded status icons
-- **Connection indicator** — shows whether the SSE connection is active
-
-The entire dashboard is ~345 lines of HTML + inline CSS + inline JS. It connects to the same `/events` SSE endpoint and `/wallets` REST endpoint that any agent would use.
-
-Why a single HTML file? Because it gets bundled into the npm package and served from memory — zero static file serving complexity, zero build tooling, zero external CDN dependencies.
-
-<!-- 📸 IMAGE: Full screenshot of the Agento dashboard showing wallets in the sidebar, stats bar, and live activity feed -->
+<!-- 📸 IMAGE: Side-by-side screenshot — left: terminal running `agento monitor` with colored events streaming. Right: the web dashboard showing the same events in the activity feed with wallet sidebar visible. -->
 
 ---
 
-## The CLI
+## The CLI: ASCII Art and All
 
-Agento includes a CLI that ships as the `agento` binary when you install the npm package. It handles wallet management, server startup, and live monitoring.
+Agento ships with a full CLI. It handles wallet management, server startup, and live monitoring from the terminal.
 
 ```
    █████╗  ██████╗ ███████╗███╗   ██╗████████╗ ██████╗
@@ -259,117 +250,93 @@ Agento includes a CLI that ships as the `agento` binary when you install the npm
   ██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║   ██║   ██║
   ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║   ╚██████╔╝
   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝    ╚═════╝
-
-  Agentic wallet infrastructure for AI agents on Solana
-  v0.1.1
 ```
 
-Three command groups:
+Commands:
 
-- **`agento wallet`** — create, list, info, fund, import, export, delete wallets directly from the terminal
-- **`agento serve rest`** — start the REST API server (includes dashboard)
+- **`agento wallet create/list/info/fund/import/export/delete`** — manage wallets from the terminal
+- **`agento serve rest`** — start the REST API (includes dashboard at `/dashboard`)
 - **`agento serve mcp`** — start the MCP stdio server for Claude Desktop
-- **`agento monitor`** — live-tail agent activity from any running Agento instance (local or remote)
+- **`agento monitor`** — live-tail events from any running Agento instance
 
-The `monitor` command is particularly useful in production: you can point it at a remote Agento deployment and watch agent activity in real-time:
+The wallet commands let you set everything up before an agent ever connects. Create wallets, fund them with devnet SOL, verify balances — all from the command line. Then start the server and let the agent take over.
 
-```bash
-agento monitor --host https://agento-8m72.onrender.com
-```
-
-<!-- 📸 IMAGE: Terminal screenshot of `agento help` showing the full CLI output with colored commands -->
+<!-- 📸 IMAGE: Terminal screenshot of `agento wallet list` showing 2-3 wallets with addresses and creation dates, followed by `agento serve rest` starting up. -->
 
 ---
 
-## The Python Agent Demo
+## Demo: A LangGraph Agent Running DeFi Operations
 
-To prove Agento works with any language and framework, I built a standalone Python agent that connects to a live Agento deployment purely over HTTP.
+Talk is cheap. Here's what it looks like when an actual AI agent uses Agento.
 
-The agent:
+The demo agent is built with LangGraph and connects to Agento over REST. It auto-discovers available tools by fetching `GET /tools`, wraps them into a single `agento` function-calling tool, and lets the LLM decide what to do.
 
-1. **Auto-discovers tools** — fetches `GET /tools` and converts them into OpenAI function-calling format
-2. **Uses any LLM** — via OpenRouter (GPT-4o-mini by default, but any model works)
-3. **Manages wallets autonomously** — creates wallets, requests airdrops, checks balances, executes swaps
-4. **Supports interactive mode** — `python agent.py -i` drops you into a conversational loop with the agent
+```
+🎯 Task: Check my SOL balance and the current price of SOL
 
-The entire agent is 190 lines of Python. No Agento-specific SDK — just `httpx` for HTTP and `openai` for LLM calls.
+  🔧 agento({ tool: "get_balance", params: {} })
+  ✅ 2.0 SOL
 
-```bash
-🌐 Agento: https://agento-8m72.onrender.com
-🧠 Model:  openai/gpt-4o-mini
-✅ Agento is reachable.
-🔧 Discovered 18 tools.
+  🔧 agento({ tool: "fetch_token_price", params: { mint: "So11..." } })
+  ✅ $178.45 (dexscreener)
 
-🎯 Task: Create a new wallet, airdrop 2 SOL, then check the balance.
-
-  🔧 create_wallet({})
-  ✅ {"success":true,"result":{"wallet_id":"38ab230d-...","address":"3dWF..."}}
-  📝 Active wallet → 38ab230d…
-  🔧 request_airdrop({"amount": 2})
-  ✅ {"success":true,"result":{"signature":"4Vu8...","amount":2}}
-  🔧 get_balance({})
-  ✅ {"success":true,"result":{"address":"3dWF...","balance_sol":2}}
-
-🤖 Done! Created wallet 3dWF…, airdropped 2 SOL, balance confirmed at 2 SOL.
+🤖 Your wallet holds 2.0 SOL, worth approximately $356.90 at the current price.
 ```
 
-This is the whole point: **the agent doesn't know or care that Agento is written in TypeScript**. It just calls HTTP endpoints.
+The multi-agent demo goes further: three agents (Trader, Staker, Lender) each with their own wallet, running in parallel via `Promise.all()`. The Trader swaps SOL for USDC. The Staker converts SOL to jupSOL. The Lender swaps to USDC and lends it on Lulo for yield. Each agent reasons independently, uses different DeFi protocols, and all run against one Agento instance.
 
-<!-- 📸 IMAGE: Terminal screenshot of the Python agent running through the wallet creation → airdrop → balance check flow -->
+<!-- 📸 IMAGE: Terminal showing the multi-agent demo running — three agents starting in parallel, each performing their DeFi operations with tool calls and results visible. -->
 
 ---
 
-## Deployment
+## How an Agent Discovers Tools
 
-Agento is deployed on Render and published to npm:
+Agento includes a `SKILLS.md` file — a Markdown document that describes every tool, common token mints, guardrail rules, and example workflows in a format LLMs can parse naturally.
 
-- **Live API:** `https://agento-8m72.onrender.com`
-- **npm:** `npx @onetutuone/agento`
-- **Dashboard:** `https://agento-8m72.onrender.com/dashboard`
-
-For self-hosting, it's a single command:
+But agents can also discover tools programmatically. `GET /tools` returns the full tool registry:
 
 ```bash
-npx @onetutuone/agento serve rest
+curl http://localhost:3000/tools | jq '.tools[].name'
 ```
 
-That installs the package, starts the REST server, opens the dashboard — done.
-
-For Render/Railway/Fly.io, the `render.yaml` is included:
-
-```yaml
-services:
-  - type: web
-    name: agento
-    runtime: node
-    buildCommand: npm install && npm run build
-    startCommand: npm start
-    envVars:
-      - key: SOLANA_RPC_URL
-        value: https://api.devnet.solana.com
+```
+"create_wallet"
+"get_wallet_address"
+"get_balance"
+...
+"lend_asset"
+"withdraw_lend"
 ```
 
-<!-- 📸 IMAGE: The Render dashboard showing the agento service running, or `curl` hitting the live health endpoint -->
+The demo agents use this approach: fetch the tool list at startup, construct a generic tool caller, and let the LLM figure out which tools to invoke based on the task. No hardcoded tool definitions in the agent code.
+
+This means if you add a new tool to Agento, every connected agent picks it up automatically on next startup. No agent code changes needed.
 
 ---
 
-## What I Learned
+## What Makes This Different
 
-### 1. MCP is the future for agent tooling
+A few things I think are worth highlighting:
 
-The Model Context Protocol standardizes how AI agents discover and call tools. Instead of every agent framework having its own tool format, MCP provides one protocol that works across Claude, LangChain, and any future MCP-compatible agent. Building with both MCP and REST from day one means Agento works regardless of how the agent ecosystem evolves.
+### 1. The Keystore Is Actually Secure
 
-### 2. Direct API calls beat SDKs for focused use cases
+Most agent-wallet projects store private keys in plaintext, environment variables, or at best base64. Agento uses production-grade encryption (scrypt + AES-256-GCM) based on a standard that secures millions of Ethereum wallets. It's the same encryption you'd use for a human wallet — because an agent's money is just as real.
 
-solana-agent-kit tries to wrap everything — NFTs, Metaplex, Tensor, Tiplinks, token launching — into one SDK. If you only need DeFi operations, the overhead is absurd. Direct `fetch()` calls to Jupiter and Lulo APIs are simpler, more maintainable, and result in 209 packages instead of 1,300+.
+### 2. Guardrails Are First-Class, Not Afterthoughts
 
-### 3. Guardrails are not optional
+The guardrail engine isn't a plugin or a wrapper. It's wired into the tool execution pipeline — every transactional tool passes through it before the transaction hits the blockchain. You can't accidentally bypass it. This is the difference between "we added safety" and "safety is structural."
 
-The first time I let an agent autonomously swap tokens without any safety limits, it tried to swap my entire balance. Guardrails need to be first-class — not bolted on after. Drain protection, rate limiting, and spending caps should be in place before any agent gets wallet access.
+### 3. Framework Agnostic by Design
 
-### 4. Observability matters as much as functionality
+Agento doesn't care what LLM you use or what framework your agent is built with. LangChain, LangGraph, Vercel AI SDK, raw OpenAI function calls, a bash script with `curl` — if it can make HTTP requests, it can use Agento. This was a deliberate choice: wallet infrastructure should outlive any particular AI framework.
 
-If you can't see what your agents are doing, you can't trust them. The event system, CLI monitor, and dashboard aren't nice-to-haves — they're how you verify your agent isn't doing something catastrophically stupid at 3 AM.
+### 4. Observable by Default
+
+Every tool call, every success, every failure, every guardrail block — all emitted as structured events in real-time. The CLI monitor, web dashboard, and SSE stream aren't add-ons. They're built into the core. If you can't watch your agent in real-time, you're not ready for autonomous operations.
+
+### 5. Minimal by Choice
+
+8 source files. ~2,100 lines of TypeScript. No solana-agent-kit. No wrapper SDKs. Every API call is a direct `fetch()`. When something breaks, you can read the entire codebase in an afternoon and find the issue. Simplicity is a feature.
 
 ---
 
@@ -379,35 +346,34 @@ If you can't see what your agents are doing, you can't trust them. The event sys
 |--------|-------|
 | Source files | 8 |
 | Lines of TypeScript | ~2,100 |
-| npm dependencies | 209 packages |
 | Tools | 18 |
 | Guardrail rules | 9 |
-| Keystore encryption | AES-256-GCM + scrypt |
-| Build output | 117.8 kB unpacked |
-| Interfaces | 2 (MCP + REST) |
+| Keystore encryption | AES-256-GCM + scrypt (N=2¹⁸) |
+| Interfaces | 2 (REST + MCP) |
 | External APIs | Jupiter, Lulo/Flexlend, DexScreener |
+| Frameworks required | None (agents use any) |
 
 ---
 
 ## Try It
 
 ```bash
-# Install and run
-npx @onetutuone/agento serve rest
+git clone https://github.com/sadiqsaidu/agento.git
+cd agento
+npm install && npm run build
 
-# Create a wallet
-curl -X POST http://localhost:3000/wallets -H 'Content-Type: application/json' \
-  -d '{"password": "my-secret"}'
+# Create a wallet and start the server
+npx agento wallet create -p my-secret
+npx agento serve rest
 
-# Check the dashboard
-open http://localhost:3000/dashboard
+# In another terminal — watch the agent
+npx agento monitor
 ```
 
-Or hit the live deployment: [https://agento-8m72.onrender.com/dashboard](https://agento-8m72.onrender.com/dashboard)
+Point your agent at `http://localhost:3000` and let it discover tools, create wallets, and start trading.
 
 **GitHub:** [github.com/sadiqsaidu/agento](https://github.com/sadiqsaidu/agento)
-**npm:** [@onetutuone/agento](https://www.npmjs.com/package/@onetutuone/agento)
 
 ---
 
-*Agento is MIT licensed. Built with TypeScript, Hono, @solana/web3.js, and zero regrets about not using solana-agent-kit.*
+*Agento is MIT licensed. Built with TypeScript, Hono, @solana/web3.js, and the belief that AI agents deserve wallet infrastructure as good as what humans get.*

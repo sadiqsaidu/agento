@@ -3,29 +3,44 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Agento</title>
+<title>Agento Dashboard</title>
 <style>
+  @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap");
+
   :root {
-    --bg: #0e0e12;
-    --surface: #16161d;
-    --card: #1c1c27;
-    --border: #2a2a3a;
-    --text: #e4e4ed;
-    --dim: #6b6b80;
-    --accent: #ab9ff2;
+    --bg: #09090b;
+    --surface: #18181b;
+    --border: #27272a;
+    --text: #ffffff;
+    --dim: #a1a1aa;
     --green: #4ade80;
+    --green-bg: rgba(74, 222, 128, 0.15);
     --red: #f87171;
+    --red-bg: rgba(248, 113, 113, 0.15);
     --yellow: #fbbf24;
-    --blue: #60a5fa;
+    --yellow-bg: rgba(251, 191, 36, 0.15);
+    --radius: 20px;
+    --font-ui: "Inter", -apple-system, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: var(--font-ui);
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
+    display: flex;
+    justify-content: center;
+  }
+
+  .app-container {
+    width: 100%;
+    max-width: 520px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
   }
 
   /* ── Header ── */
@@ -33,166 +48,204 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 24px;
-    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+  .dropdown {
     background: var(--surface);
+    padding: 8px 16px;
+    border-radius: 24px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: default;
   }
-  .logo { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
-  .logo span { color: var(--accent); }
-  .status {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 13px; color: var(--dim);
-  }
-  .dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--red); flex-shrink: 0;
-  }
-  .dot.on { background: var(--green); }
+  .dropdown span { color: var(--dim); }
 
-  /* ── Layout ── */
-  .shell { display: flex; height: calc(100vh - 57px); }
-
-  /* ── Sidebar ── */
-  .sidebar {
-    width: 300px; min-width: 300px;
-    border-right: 1px solid var(--border);
+  .header-actions {
+    display: flex; gap: 12px;
+  }
+  .icon-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
     background: var(--surface);
-    display: flex; flex-direction: column;
-    overflow-y: auto;
-  }
-  .sidebar-section { padding: 20px; }
-  .sidebar-section + .sidebar-section { border-top: 1px solid var(--border); }
-  .section-title {
-    font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
-    color: var(--dim); margin-bottom: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
   }
 
-  /* ── Balance card ── */
-  .balance-card { text-align: center; padding: 28px 20px; }
-  .balance-label { font-size: 13px; color: var(--dim); margin-bottom: 4px; }
-  .balance-value { font-size: 36px; font-weight: 700; }
-  .balance-sub { font-size: 13px; color: var(--dim); margin-top: 4px; }
+  /* ── Hero ── */
+  .hero { margin-bottom: 32px; }
+  .hero-label {
+    font-size: 14px;
+    color: var(--dim);
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+  .big-number {
+    font-size: 56px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    letter-spacing: -2px;
+    margin-bottom: 16px;
+    line-height: 1;
+  }
+  .chips { display: flex; gap: 8px; }
+  .chip {
+    background: var(--green-bg);
+    color: var(--green);
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .chip .dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; }
 
-  /* ── Wallet list ── */
-  .wallet-item {
+  .chip.disconnected { background: var(--red-bg); color: var(--red); }
+  .chip.disconnected .dot { background: var(--red); }
+
+  /* ── Stats Row (Action Buttons) ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 40px;
+  }
+  .stat-btn {
+    background: var(--surface);
+    padding: 18px 8px;
+    border-radius: var(--radius);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .stat-icon { font-size: 20px; margin-bottom: 12px; }
+  .stat-label { font-size: 11px; color: var(--dim); margin-bottom: 6px; font-weight: 500; }
+  .stat-val { font-size: 15px; font-weight: 600; font-family: var(--font-mono); }
+  .stat-val.green { color: var(--green); }
+  .stat-val.yellow { color: var(--yellow); }
+  .stat-val.red { color: var(--red); }
+
+  /* ── Lists ── */
+  .section-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 14px; border-radius: 12px; cursor: pointer;
-    transition: background 0.15s;
-    margin-bottom: 4px;
+    margin-bottom: 16px;
   }
-  .wallet-item:hover { background: var(--card); }
-  .wallet-item.active { background: var(--card); border: 1px solid var(--accent); }
-  .wallet-icon {
-    width: 36px; height: 36px; border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent), #7c5cfc);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0;
+  .section-title {
+    font-size: 14px;
+    font-family: var(--font-mono);
+    color: var(--text);
   }
-  .wallet-meta { flex: 1; margin-left: 12px; }
-  .wallet-addr { font-size: 14px; font-weight: 500; }
-  .wallet-date { font-size: 11px; color: var(--dim); }
-  .wallet-bal { font-size: 14px; font-weight: 600; text-align: right; }
-
-  .no-wallets { font-size: 13px; color: var(--dim); text-align: center; padding: 20px; }
-
-  /* ── Main ── */
-  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-
-  /* ── Stats bar ── */
-  .stats {
-    display: flex; gap: 1px; background: var(--border);
-    border-bottom: 1px solid var(--border);
+  .section-action {
+    font-size: 12px; color: var(--dim); font-family: var(--font-mono);
   }
-  .stat {
-    flex: 1; padding: 16px 20px; background: var(--surface);
+
+  .list-group {
+    display: flex; flex-direction: column; gap: 8px; margin-bottom: 40px;
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    padding: 16px;
+    border-radius: var(--radius);
+    display: flex; align-items: center; gap: 16px;
+  }
+  .card-icon {
+    width: 44px; height: 44px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .card-content { flex: 1; min-width: 0; }
+  .card-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: capitalize; }
+  .card-sub { font-size: 13px; color: var(--dim); font-family: var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-right { text-align: right; flex-shrink: 0; }
+  .card-val { font-size: 15px; font-weight: 600; margin-bottom: 4px; font-family: var(--font-mono); }
+  .card-val-sub { font-size: 12px; color: var(--dim); font-family: var(--font-mono); }
+  
+  .card-val.green { color: var(--green); }
+  .card-val.yellow { color: var(--yellow); }
+  .card-val.red { color: var(--red); }
+
+  /* ── Event Specific ── */
+  .event-card .card-title { text-transform: none; }
+  .event-card.success .card-icon { background: var(--green-bg); font-size: 16px; }
+  .event-card.blocked .card-icon { background: var(--yellow-bg); font-size: 16px; }
+  .event-card.error .card-icon { background: var(--red-bg); font-size: 16px; }
+
+  .empty-state {
     text-align: center;
-  }
-  .stat-value { font-size: 24px; font-weight: 700; }
-  .stat-label { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
-  .stat-value.green { color: var(--green); }
-  .stat-value.red { color: var(--red); }
-  .stat-value.yellow { color: var(--yellow); }
-  .stat-value.blue { color: var(--blue); }
-
-  /* ── Feed ── */
-  .feed-header {
-    padding: 16px 24px; font-size: 12px; text-transform: uppercase;
-    letter-spacing: 1px; color: var(--dim); background: var(--surface);
-    border-bottom: 1px solid var(--border);
-  }
-  .feed {
-    flex: 1; overflow-y: auto; padding: 8px 16px;
-    display: flex; flex-direction: column-reverse;
-  }
-  .feed-inner { display: flex; flex-direction: column; }
-  .event {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 12px; border-radius: 10px;
-    font-size: 13px; transition: background 0.1s;
-  }
-  .event:hover { background: var(--card); }
-  .event-icon { font-size: 16px; flex-shrink: 0; width: 24px; text-align: center; }
-  .event-tool { font-weight: 600; color: var(--accent); min-width: 160px; }
-  .event-summary { flex: 1; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .event-time { font-size: 11px; color: var(--dim); font-family: monospace; flex-shrink: 0; }
-  .event-ms { font-size: 11px; color: var(--dim); min-width: 48px; text-align: right; font-family: monospace; }
-  .event.blocked .event-summary { color: var(--yellow); }
-  .event.error .event-summary { color: var(--red); }
-
-  .empty-feed {
-    display: flex; align-items: center; justify-content: center;
-    height: 100%; color: var(--dim); font-size: 14px;
-    flex-direction: column; gap: 8px;
-  }
-  .empty-feed .hint { font-size: 12px; color: var(--border); }
-
-  /* ── Scrollbar ── */
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--dim); }
-
-  /* ── Responsive ── */
-  @media (max-width: 768px) {
-    .shell { flex-direction: column; }
-    .sidebar { width: 100%; min-width: 100%; max-height: 40vh; border-right: none; border-bottom: 1px solid var(--border); }
+    padding: 32px 0;
+    color: var(--dim);
+    font-size: 14px;
+    background: var(--surface);
+    border-radius: var(--radius);
   }
 </style>
 </head>
 <body>
 
-<header>
-  <div class="logo"><span>◆</span> Agento</div>
-  <div class="status">
-    <div class="dot" id="dot"></div>
-    <span id="status-text">Connecting…</span>
+<div class="app-container">
+  <header>
+    <div class="dropdown">✦ Agento <span>▾</span></div>
+    <div class="header-actions">
+      <div class="icon-btn">↺</div>
+      <div class="icon-btn">⚙</div>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="hero-label">Live Operations</div>
+    <div id="total-balance" class="big-number">0</div>
+    <div class="chips">
+      <div class="chip" id="conn-chip"><span class="dot"></span> <span id="status-text">Connected</span></div>
+      <div class="chip" style="background: rgba(255,255,255,0.05); color: var(--dim);">
+        <span>◎</span> Devnet
+      </div>
+    </div>
   </div>
-</header>
 
-<div class="shell">
-  <aside class="sidebar">
-    <div class="sidebar-section balance-card">
-      <div class="balance-label">Total Balance</div>
-      <div class="balance-value" id="total-balance">—</div>
-      <div class="balance-sub" id="wallet-count">Loading…</div>
+  <div class="stats-row">
+    <div class="stat-btn">
+      <div class="stat-icon">✅</div>
+      <div class="stat-label">Success</div>
+      <div class="stat-val green" id="s-ok">0</div>
     </div>
-    <div class="sidebar-section">
-      <div class="section-title">Wallets</div>
-      <div id="wallet-list"><div class="no-wallets">Loading…</div></div>
+    <div class="stat-btn">
+      <div class="stat-icon">🛡️</div>
+      <div class="stat-label">Blocked</div>
+      <div class="stat-val yellow" id="s-blocked">0</div>
     </div>
-  </aside>
+    <div class="stat-btn">
+      <div class="stat-icon">❌</div>
+      <div class="stat-label">Errors</div>
+      <div class="stat-val red" id="s-err">0</div>
+    </div>
+    <div class="stat-btn">
+      <div class="stat-icon">⚡</div>
+      <div class="stat-label">Avg ms</div>
+      <div class="stat-val" id="s-avg">0</div>
+    </div>
+  </div>
 
-  <div class="main">
-    <div class="stats">
-      <div class="stat"><div class="stat-value green" id="s-ok">0</div><div class="stat-label">Success</div></div>
-      <div class="stat"><div class="stat-value yellow" id="s-blocked">0</div><div class="stat-label">Blocked</div></div>
-      <div class="stat"><div class="stat-value red" id="s-err">0</div><div class="stat-label">Errors</div></div>
-      <div class="stat"><div class="stat-value blue" id="s-avg">0ms</div><div class="stat-label">Avg Time</div></div>
-    </div>
-    <div class="feed-header">Live Activity</div>
-    <div class="feed" id="feed">
-      <div class="feed-inner" id="feed-inner"></div>
-    </div>
+  <div class="section-header">
+    <div class="section-title">💼 Wallets</div>
+    <div class="section-action" id="wallet-count">Loading...</div>
+  </div>
+  <div class="list-group" id="wallet-list">
+    <div class="empty-state">Loading...</div>
+  </div>
+
+  <div class="section-header">
+    <div class="section-title">📡 Activity</div>
+    <div class="section-action">Live</div>
+  </div>
+  <div class="list-group" id="feed-inner">
+    <div class="empty-state">Waiting for agent activity...</div>
   </div>
 </div>
 
@@ -202,15 +255,15 @@
 
   // ── State ──
   let stats = { ok: 0, blocked: 0, err: 0, totalMs: 0 };
+  let firstEvent = true;
 
   // ── DOM refs ──
-  const $dot = document.getElementById("dot");
+  const $connChip = document.getElementById("conn-chip");
   const $statusText = document.getElementById("status-text");
   const $totalBalance = document.getElementById("total-balance");
   const $walletCount = document.getElementById("wallet-count");
   const $walletList = document.getElementById("wallet-list");
   const $feedInner = document.getElementById("feed-inner");
-  const $feed = document.getElementById("feed");
   const $sOk = document.getElementById("s-ok");
   const $sBlocked = document.getElementById("s-blocked");
   const $sErr = document.getElementById("s-err");
@@ -222,12 +275,17 @@
     return d.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
   }
 
+  function escHtml(s) {
+    const d = document.createElement("div"); d.textContent = s; return d.innerHTML;
+  }
+
   function updateStats() {
     $sOk.textContent = stats.ok;
     $sBlocked.textContent = stats.blocked;
     $sErr.textContent = stats.err;
     const total = stats.ok + stats.blocked + stats.err;
-    $sAvg.textContent = total > 0 ? Math.round(stats.totalMs / total) + "ms" : "0ms";
+    $sAvg.textContent = total > 0 ? Math.round(stats.totalMs / total) : 0;
+    $totalBalance.textContent = total;
   }
 
   // ── Wallets ──
@@ -236,72 +294,76 @@
       const res = await fetch(API + "/wallets");
       const data = await res.json();
       const wallets = data.wallets || [];
-      $walletCount.textContent = wallets.length + " wallet" + (wallets.length !== 1 ? "s" : "");
+      $walletCount.textContent = wallets.length + " Total";
 
       if (wallets.length === 0) {
-        $walletList.innerHTML = '<div class="no-wallets">No wallets yet</div>';
-        $totalBalance.textContent = "—";
+        $walletList.innerHTML = "<div class="empty-state">No wallets yet</div>";
         return;
       }
 
       $walletList.innerHTML = "";
       wallets.forEach(function (w, i) {
         const el = document.createElement("div");
-        el.className = "wallet-item" + (i === 0 ? " active" : "");
+        el.className = "card";
         const short = w.address.slice(0, 4) + "…" + w.address.slice(-4);
         const date = new Date(w.created_at).toLocaleDateString();
         el.innerHTML =
-          '<div class="wallet-icon">' + (i + 1) + "</div>" +
-          '<div class="wallet-meta"><div class="wallet-addr">' + short + '</div><div class="wallet-date">' + date + "</div></div>" +
-          '<div class="wallet-bal" id="wb-' + i + '">…</div>';
+          "<div class="card-icon">💳</div>" +
+          "<div class="card-content">" +
+            "<div class="card-title">Wallet " + (w.id.slice(0,4)) + "</div>" +
+            "<div class="card-sub">" + short + "</div>" +
+          "</div>" +
+          "<div class="card-right">" +
+            "<div class="card-val var(--text)">—</div>" +
+            "<div class="card-val-sub">" + date + "</div>" +
+          "</div>";
         $walletList.appendChild(el);
       });
-
-      // Fetch balances (fire and forget, no auth needed for read)
-      $totalBalance.textContent = "—";
     } catch (e) {
-      $walletList.innerHTML = '<div class="no-wallets">Failed to load</div>';
+      $walletList.innerHTML = "<div class="empty-state">Failed to load</div>";
     }
   }
 
   // ── Event feed ──
   function addEvent(event) {
-    // Update stats
+    if (firstEvent) {
+      $feedInner.innerHTML = "";
+      firstEvent = false;
+    }
+
     if (event.status === "success") stats.ok++;
     else if (event.status === "blocked") stats.blocked++;
     else stats.err++;
     stats.totalMs += event.durationMs || 0;
     updateStats();
 
-    // Build DOM
-    const el = document.createElement("div");
-    el.className = "event" + (event.status === "blocked" ? " blocked" : "") + (event.status === "error" ? " error" : "");
+    const isSuccess = event.status === "success";
+    const isBlocked = event.status === "blocked";
 
-    const icon = event.status === "success" ? "✅" : event.status === "blocked" ? "🛡️" : "❌";
+    const el = document.createElement("div");
+    el.className = "card event-card " + event.status;
+    const icon = isSuccess ? "✅" : isBlocked ? "🛡️" : "❌";
+    const valClass = isSuccess ? "green" : isBlocked ? "yellow" : "red";
+
+    let summary = event.summary;
 
     el.innerHTML =
-      '<div class="event-icon">' + icon + "</div>" +
-      '<div class="event-tool">' + event.tool + "</div>" +
-      '<div class="event-summary">' + escHtml(event.summary) + "</div>" +
-      '<div class="event-ms">' + (event.durationMs || 0) + "ms</div>" +
-      '<div class="event-time">' + fmtTime(event.timestamp) + "</div>";
+      "<div class="card-icon">" + icon + "</div>" +
+      "<div class="card-content">" +
+        "<div class="card-title">" + event.tool + "</div>" +
+        "<div class="card-sub">" + escHtml(summary) + "</div>" +
+      "</div>" +
+      "<div class="card-right">" +
+        "<div class="card-val " + valClass + "">" + (event.durationMs || 0) + "ms</div>" +
+        "<div class="card-val-sub">" + fmtTime(event.timestamp) + "</div>" +
+      "</div>";
 
-    $feedInner.appendChild(el);
-
-    // Auto-scroll if near bottom
-    if ($feed.scrollTop >= $feed.scrollHeight - $feed.clientHeight - 100) {
-      $feed.scrollTop = $feed.scrollHeight;
+    $feedInner.insertBefore(el, $feedInner.firstChild);
+    
+    // Prevent feed from growing infinitely
+    if ($feedInner.children.length > 50) {
+      $feedInner.lastChild.remove();
     }
-
-    // Remove placeholder
-    const placeholder = document.querySelector(".empty-feed");
-    if (placeholder) placeholder.remove();
-  }
-
-  function escHtml(s) {
-    const d = document.createElement("div");
-    d.textContent = s;
-    return d.innerHTML;
   }
 
   // ── SSE ──
@@ -309,35 +371,24 @@
     const es = new EventSource(API + "/events");
 
     es.addEventListener("tool", function (e) {
-      try {
-        addEvent(JSON.parse(e.data));
-      } catch (_) {}
+      try { addEvent(JSON.parse(e.data)); } catch (_) {}
     });
 
     es.onopen = function () {
-      $dot.classList.add("on");
+      $connChip.className = "chip";
       $statusText.textContent = "Connected";
     };
 
     es.onerror = function () {
-      $dot.classList.remove("on");
-      $statusText.textContent = "Reconnecting…";
+      $connChip.className = "chip disconnected";
+      $statusText.textContent = "Disconnected";
     };
   }
 
   // ── Init ──
   loadWallets();
   connectSSE();
-
-  // Refresh wallets every 30s
   setInterval(loadWallets, 30000);
-
-  // Show empty state
-  $feedInner.innerHTML =
-    '<div class="empty-feed">' +
-    '<div>Waiting for agent activity…</div>' +
-    '<div class="hint">Events will appear here in real-time</div>' +
-    "</div>";
 })();
 </script>
 </body>

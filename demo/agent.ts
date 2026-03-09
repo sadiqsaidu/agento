@@ -1,143 +1,156 @@
 /**
- * Demo Agent — LangChain ReAct agent that connects to Agento via MCP
+ * Agento Demo Agent — single agent testing all DeFi tools
  *
- * This demonstrates the core value proposition:
- *   An AI agent (this file) connects to Agento's MCP server (src/mcp.ts)
- *   and autonomously manages a Solana wallet — creating wallets, checking
- *   balances, retrieving market data, executing swaps, placing limit orders,
- *   staking, and lending.
- *
- * Architecture:
- *   [This Agent] --stdio--> [Agento MCP Server] --RPC/API--> [Solana Devnet]
+ * This agent connects to a running Agento REST server, auto-discovers
+ * all available tools via SKILLS.md / GET /tools, and runs through
+ * swap, stake, limit order, and lending operations autonomously.
  *
  * Usage:
- *   1. Set env vars (OPENROUTER_API_KEY, WALLET_ID, WALLET_PASSWORD)
- *   2. npx tsx demo/agent.ts
+ *   1. Start the server:  agento serve rest
+ *   2. Create + fund a wallet via the CLI
+ *   3. Set env vars in .env (WALLET_ID, WALLET_PASSWORD, OPENROUTER_API_KEY)
+ *   4. Run:  npm run demo
  */
 
-import { ChatOpenAI } from "@langchain/openai";
+import { tool } from "@langchain/core/tools";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
-import { MultiServerMCPClient } from "@langchain/mcp-adapters";
+import { ChatOpenAI } from "@langchain/openai";
+import { HumanMessage } from "@langchain/core/messages";
+import { z } from "zod";
 import "dotenv/config";
 
-async function main() {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  const model = process.env.OPENROUTER_MODEL || "openai/gpt-oss-120b:free";
-  if (!apiKey) {
-    console.error("❌ OPENROUTER_API_KEY is required");
-    process.exit(1);
-  }
+const AGENTO_URL = process.env.AGENTO_URL || "http://localhost:3000";
+const WALLET_ID = process.env.WALLET_ID || "";
+const WALLET_PASSWORD = process.env.WALLET_PASSWORD || "";
 
-  // ── LLM via OpenRouter ──
-  const llm = new ChatOpenAI({
-    model,
-    configuration: {
-      baseURL: "https://openrouter.ai/api/v1",
-    },
-    apiKey,
-    temperature: 0,
-  });
-
-  // ── Connect to Agento MCP server via stdio ──
-  console.log("🔌 Connecting to Agento MCP server...\n");
-  console.log(`🧠 Model: ${model}\n`);
-
-  const mcpClient = new MultiServerMCPClient({
-    mcpServers: {
-      agento: {
-        transport: "stdio",
-        command: "npx",
-        args: ["tsx", "src/mcp.ts"],
-        env: {
-          ...process.env as Record<string, string>,
-          WALLET_ID: process.env.WALLET_ID || "",
-          WALLET_PASSWORD: process.env.WALLET_PASSWORD || "agento",
-        },
-      },
-    },
-  });
-
-  const tools = await mcpClient.getTools();
-  console.log(
-    `✅ Connected! Available tools: ${tools.map((t) => t.name).join(", ")}\n`,
-  );
-
-  // ── Create the ReAct agent ──
-  const agent = createReactAgent({
-    llm,
-    tools,
-    prompt: `You are an autonomous DeFi agent connected to an Agento wallet on Solana devnet.
-
-You have access to a set of wallet and DeFi tools through the Agento MCP server.
-Your capabilities include:
-- Creating and managing Solana wallets
-- Checking SOL and token balances
-- Fetching token prices and market context
-- Transferring SOL and SPL tokens
-- Swapping tokens via Jupiter
-- Creating and managing limit orders
-- Liquid staking SOL for jupSOL
-- Lending assets via Lulo for yield
-
-When asked to perform operations:
-1. Prefer information-gathering tools first unless the user explicitly asks for an on-chain action
-2. Explain what you're doing before each action
-3. Report transaction signatures after on-chain operations
-4. If an action needs funds and the wallet appears unfunded, explain the constraint and suggest the user fund the wallet externally
-5. Handle errors gracefully and suggest alternatives
-
-You are running on Solana DEVNET — all transactions use test tokens.`,
-  });
-
-  // ── Run the agent ──
-  const task =
-    process.argv[2] ||
-    "List the available Agento wallets, show the active wallet address, check its SOL balance, and fetch the current prices of SOL and USDC.";
-
-  console.log(`📋 Task: ${task}\n`);
-  console.log("─".repeat(60) + "\n");
-
-  const stream = await agent.stream(
-    { messages: [{ role: "user", content: task }] },
-    { recursionLimit: 20 },
-  );
-
-  for await (const event of stream) {
-    // Each event is keyed by node name: "agent" or "tools"
-    const agentData = (event as any).agent;
-    const toolsData = (event as any).tools;
-
-    if (agentData?.messages) {
-      for (const msg of agentData.messages) {
-        if (msg.content && typeof msg.content === "string") {
-          console.log(`🤖 Agent: ${msg.content}\n`);
-        }
-      }
-    }
-    if (toolsData?.messages) {
-      for (const msg of toolsData.messages) {
-        const toolName = msg.name || "tool";
-        const content =
-          typeof msg.content === "string"
-            ? msg.content
-            : JSON.stringify(msg.content, null, 2);
-        console.log(`🔧 [${toolName}]: ${content}\n`);
-      }
-    }
-  }
-
-  // Cleanup
-  await mcpClient.close();
-  console.log("\n✅ Done");
+if (!WALLET_ID || !WALLET_PASSWORD) {
+  console.error("❌ Set WALLET_ID and WALLET_PASSWORD in .env");
+  process.exit(1);
+}
+if (!process.env.OPENROUTER_API_KEY) {
+  console.error("❌ Set OPENROUTER_API_KEY in .env");
+  process.exit(1);
 }
 
-main().catch((err) => {
-  if (err?.message?.includes("429")) {
-    console.error(
-      "Fatal: OpenRouter rate limit hit. Set OPENROUTER_MODEL to a different available model or retry later.",
-    );
-    process.exit(1);
-  }
-  console.error("Fatal:", err.message);
+// ── Health check ──
+
+const health = await fetch(`${AGENTO_URL}/health`).catch(() => null);
+if (!health?.ok) {
+  console.error(`❌ Cannot reach Agento at ${AGENTO_URL}. Run: agento serve rest`);
   process.exit(1);
+}
+
+// ── Discover tools ──
+
+const { tools: toolList } = await (await fetch(`${AGENTO_URL}/tools`)).json() as {
+  tools: { name: string; description: string }[];
+};
+
+const skillDocs = toolList.map((t) => `• ${t.name}: ${t.description}`).join("\n");
+console.log(`🔧 Discovered ${toolList.length} tools from Agento\n`);
+
+// ── Generic Agento caller ──
+
+const agento = tool(
+  async ({ toolName, input }) => {
+    try {
+      const res = await fetch(`${AGENTO_URL}/tools/${toolName}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Wallet-Id": WALLET_ID,
+          "X-Wallet-Password": WALLET_PASSWORD,
+        },
+        body: JSON.stringify(input ?? {}),
+      });
+      return JSON.stringify(await res.json());
+    } catch (err) {
+      return JSON.stringify({ error: String(err) });
+    }
+  },
+  {
+    name: "agento",
+    description: `Call any Agento wallet tool by name. Available tools:\n${skillDocs}`,
+    schema: z.object({
+      toolName: z.string().describe("The exact tool name"),
+      input: z.record(z.unknown()).optional().describe("Tool input parameters"),
+    }),
+  },
+);
+
+// ── LLM via OpenRouter ──
+
+const llm = new ChatOpenAI({
+  modelName: process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini",
+  temperature: 0,
+  apiKey: process.env.OPENROUTER_API_KEY,
+  configuration: { baseURL: "https://openrouter.ai/api/v1" },
 });
+
+const agent = createReactAgent({ llm, tools: [agento] });
+
+// ── Test tasks ──
+
+const tasks = [
+  {
+    name: "💰 Wallet & Prices",
+    prompt: "Check my SOL balance, list all token balances, and fetch the current price of SOL and USDC.",
+  },
+  {
+    name: "🔁 Swap SOL → USDC",
+    prompt: "Swap 0.1 SOL for USDC. Then check my updated SOL and token balances.",
+  },
+  {
+    name: "🥩 Stake SOL → jupSOL",
+    prompt: "Stake 0.1 SOL for jupSOL. Then check my token balances to confirm.",
+  },
+  {
+    name: "📋 Limit Order",
+    prompt: `Place a limit order selling 50000000 lamports of SOL (inputMint: So11111111111111111111111111111111111111112) for at least 1000000 USDC units (outputMint: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v). Use makingAmount and takingAmount as strings. Then list all open orders.`,
+  },
+  {
+    name: "❌ Cancel Orders",
+    prompt: "List all my open limit orders. If any exist, cancel all of them.",
+  },
+  {
+    name: "🏦 Lend USDC",
+    prompt: "Lend 0.5 USDC (mintAddress: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v) to Lulo. Then check my token balances.",
+  },
+  {
+    name: "🏧 Withdraw USDC",
+    prompt: "Withdraw 0.5 USDC (mintAddress: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v) from Lulo. Then check my token balances.",
+  },
+];
+
+// ── Run ──
+
+console.log("🤖 Agento Demo Agent");
+console.log(`📡 ${AGENTO_URL}`);
+console.log(`💳 Wallet: ${WALLET_ID}`);
+console.log(`👀 Dashboard: ${AGENTO_URL}/dashboard`);
+console.log(`${"═".repeat(60)}\n`);
+
+const results: { name: string; ok: boolean }[] = [];
+
+for (const task of tasks) {
+  console.log(`🧪 ${task.name}`);
+  console.log("─".repeat(60));
+
+  try {
+    const { messages } = await agent.invoke({
+      messages: [new HumanMessage(task.prompt)],
+    });
+    const reply = messages.at(-1)?.content;
+    console.log(`\n🤖 ${typeof reply === "string" ? reply : JSON.stringify(reply)}\n`);
+    results.push({ name: task.name, ok: true });
+  } catch (err) {
+    console.error(`\n❌ ${err instanceof Error ? err.message : err}\n`);
+    results.push({ name: task.name, ok: false });
+  }
+}
+
+console.log("═".repeat(60));
+console.log("📊 RESULTS");
+console.log("═".repeat(60));
+results.forEach((r) => console.log(`${r.ok ? "✅" : "❌"}  ${r.name}`));
+console.log(`\n👀 Full activity log: ${AGENTO_URL}/dashboard\n`);

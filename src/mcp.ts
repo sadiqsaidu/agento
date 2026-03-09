@@ -41,7 +41,7 @@ async function main() {
 
   const server = new McpServer({
     name: "agento",
-    version: "0.1.1",
+    version: "0.2.0",
   });
 
   // Register every tool from the shared registry
