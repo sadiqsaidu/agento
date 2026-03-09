@@ -49,22 +49,19 @@ function info(msg: string) {
 
 // ── Banner ──
 
-const VERSION = "0.1.0";
+const VERSION = "0.1.1";
 
 function banner() {
   log(`
-${YELLOW}  ╔═══════════════════════════════════════════════╗${R}
-${YELLOW}  ║${R}  ${B}Welcome to ${CYAN}Agento${R} ${D}v${VERSION}${R}                      ${YELLOW}║${R}
-${YELLOW}  ╚═══════════════════════════════════════════════╝${R}
+${BLUE}   █████╗  ██████╗ ███████╗███╗   ██╗████████╗ ██████╗${R}
+${BLUE}  ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝██╔═══██╗${R}
+${BLUE}  ███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║   ██║   ██║${R}
+${BLUE}  ██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║   ██║   ██║${R}
+${BLUE}  ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║   ╚██████╔╝${R}
+${BLUE}  ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝    ╚═════╝${R}
 
-${MAGENTA}   █████╗  ██████╗ ███████╗███╗   ██╗████████╗ ██████╗${R}
-${MAGENTA}  ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝██╔═══██╗${R}
-${MAGENTA}  ███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║   ██║   ██║${R}
-${MAGENTA}  ██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║   ██║   ██║${R}
-${MAGENTA}  ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║   ╚██████╔╝${R}
-${MAGENTA}  ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝    ╚═════╝${R}
-
-${D}  Agentic wallet infrastructure for AI agents on Solana${R}
+  ${D}Agentic wallet infrastructure for AI agents on Solana${R}
+  ${D}v${VERSION}${R}
 `);
 }
 
@@ -305,49 +302,33 @@ function printEvent(e: ToolEvent) {
 // ── Help ──
 
 function printHelp() {
-  log(`${B}USAGE${R}
-  ${CYAN}agento${R} <command> [options]
+  log(`  ${CYAN}agento${R} <command> [options]
 
-${B}WALLET${R}
-  wallet create  --password <pw>            Create encrypted wallet
-  wallet list                               List all wallets
-  wallet info    <id> --password <pw>       Balance + token info
-  wallet fund    <id> --password <pw>       Airdrop 1 devnet SOL
-  wallet import  <key> --password <pw>      Import base58 private key
-  wallet export  <id> --password <pw>       Export private key
-  wallet delete  <id>                       Remove wallet
+  ${B}Wallet${R}
+    ${CYAN}wallet create${R}  --password <pw>            ${D}Create encrypted wallet${R}
+    ${CYAN}wallet list${R}                               ${D}List all wallets${R}
+    ${CYAN}wallet info${R}    <id> --password <pw>       ${D}Balance + token info${R}
+    ${CYAN}wallet fund${R}    <id> --password <pw>       ${D}Airdrop 1 devnet SOL${R}
+    ${CYAN}wallet import${R}  <key> --password <pw>      ${D}Import base58 private key${R}
+    ${CYAN}wallet export${R}  <id> --password <pw>       ${D}Export private key${R}
+    ${CYAN}wallet delete${R}  <id>                       ${D}Remove wallet${R}
 
-${B}SERVER${R}
-  serve rest  [--port 3000]                 Start REST API
-  serve mcp   --wallet <id> --password <pw> Start MCP server (stdio)
+  ${B}Server${R}
+    ${CYAN}serve rest${R}  [--port 3000]                 ${D}Start REST API${R}
+    ${CYAN}serve mcp${R}   --wallet <id> --password <pw> ${D}Start MCP server (stdio)${R}
 
-${B}MONITOR${R}
-  monitor [--host http://localhost:3000]    Live-tail agent activity
+  ${B}Monitor${R}
+    ${CYAN}monitor${R} [--host http://localhost:3000]    ${D}Live-tail agent activity${R}
 
-${B}OPTIONS${R}
-  --help, -h        Show this help
-  --version, -v     Show version
+  ${B}Options${R}
+    ${CYAN}--help${R}, ${CYAN}-h${R}        ${D}Show this help${R}
+    ${CYAN}--version${R}, ${CYAN}-v${R}     ${D}Show version${R}
 
-${B}ENVIRONMENT${R}
-  AGENTO_PASSWORD   Default wallet password
-  AGENTO_HOST       Monitor target (default: http://localhost:3000)
-  SOLANA_RPC_URL    RPC endpoint (default: devnet)
-  REST_PORT         Server port (default: 3000)
-  KEYSTORE_DIR      Wallet storage (default: ./wallets)
-
-${B}EXAMPLES${R}
-  ${D}# First time setup${R}
-  agento wallet create --password my-secret
-  agento wallet fund <id> --password my-secret
-
-  ${D}# Start the server${R}
-  agento serve rest
-
-  ${D}# Monitor agent activity (works with hosted server too)${R}
-  agento monitor --host https://agento-8m72.onrender.com
-
-  ${D}# MCP for Claude Desktop / Cursor${R}
-  agento serve mcp --wallet <id> --password my-secret
+  ${B}Examples${R}
+    ${D}$${R} agento wallet create --password my-secret
+    ${D}$${R} agento wallet fund <id> --password my-secret
+    ${D}$${R} agento serve rest
+    ${D}$${R} agento monitor --host https://agento-8m72.onrender.com
 `);
 }
 

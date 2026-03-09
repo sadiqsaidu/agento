@@ -11,6 +11,9 @@
  *   X-Wallet-Password: <password>
  */
 
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { streamSSE } from "hono/streaming";
@@ -36,7 +39,7 @@ app.use("*", cors());
 // ─── Health check ───
 
 app.get("/health", (c) =>
-  c.json({ status: "ok", name: "agento", version: "0.1.0" }),
+  c.json({ status: "ok", name: "agento", version: "0.1.1" }),
 );
 
 // ─── List available tools ───
@@ -187,6 +190,21 @@ app.get("/events", (c) => {
   });
 });
 
+// ─── Dashboard ───
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+let dashboardHtml: string | null = null;
+
+function getDashboard(): string {
+  if (!dashboardHtml) {
+    dashboardHtml = readFileSync(join(__dirname, "dashboard.html"), "utf-8");
+  }
+  return dashboardHtml;
+}
+
+app.get("/dashboard", (c) => c.html(getDashboard()));
+app.get("/", (c) => c.redirect("/dashboard"));
+
 // ─── Start ───
 
 // Initialize guardrails on startup
@@ -211,6 +229,7 @@ function extractSolAmountFromInput(tool: string, input: Record<string, any>): nu
 
 const port = config.REST_PORT;
 console.log(`🚀 Agento REST server listening on http://localhost:${port}`);
+console.log(`   Dashboard: http://localhost:${port}/dashboard`);
 console.log(`   Tools: ${ALL_TOOLS.length} available`);
 console.log(`   Keystore: ${config.KEYSTORE_DIR}`);
 serve({ fetch: app.fetch, port });

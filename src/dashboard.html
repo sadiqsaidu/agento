@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agento</title>
+<style>
+  :root {
+    --bg: #0e0e12;
+    --surface: #16161d;
+    --card: #1c1c27;
+    --border: #2a2a3a;
+    --text: #e4e4ed;
+    --dim: #6b6b80;
+    --accent: #ab9ff2;
+    --green: #4ade80;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --blue: #60a5fa;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .logo { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+  .status {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--dim);
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--red); flex-shrink: 0;
+  }
+  .dot.on { background: var(--green); }
+
+  /* ── Layout ── */
+  .shell { display: flex; height: calc(100vh - 57px); }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 300px; min-width: 300px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+  }
+  .sidebar-section { padding: 20px; }
+  .sidebar-section + .sidebar-section { border-top: 1px solid var(--border); }
+  .section-title {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--dim); margin-bottom: 12px;
+  }
+
+  /* ── Balance card ── */
+  .balance-card { text-align: center; padding: 28px 20px; }
+  .balance-label { font-size: 13px; color: var(--dim); margin-bottom: 4px; }
+  .balance-value { font-size: 36px; font-weight: 700; }
+  .balance-sub { font-size: 13px; color: var(--dim); margin-top: 4px; }
+
+  /* ── Wallet list ── */
+  .wallet-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px; border-radius: 12px; cursor: pointer;
+    transition: background 0.15s;
+    margin-bottom: 4px;
+  }
+  .wallet-item:hover { background: var(--card); }
+  .wallet-item.active { background: var(--card); border: 1px solid var(--accent); }
+  .wallet-icon {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #7c5cfc);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0;
+  }
+  .wallet-meta { flex: 1; margin-left: 12px; }
+  .wallet-addr { font-size: 14px; font-weight: 500; }
+  .wallet-date { font-size: 11px; color: var(--dim); }
+  .wallet-bal { font-size: 14px; font-weight: 600; text-align: right; }
+
+  .no-wallets { font-size: 13px; color: var(--dim); text-align: center; padding: 20px; }
+
+  /* ── Main ── */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── Stats bar ── */
+  .stats {
+    display: flex; gap: 1px; background: var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .stat {
+    flex: 1; padding: 16px 20px; background: var(--surface);
+    text-align: center;
+  }
+  .stat-value { font-size: 24px; font-weight: 700; }
+  .stat-label { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+  .stat-value.green { color: var(--green); }
+  .stat-value.red { color: var(--red); }
+  .stat-value.yellow { color: var(--yellow); }
+  .stat-value.blue { color: var(--blue); }
+
+  /* ── Feed ── */
+  .feed-header {
+    padding: 16px 24px; font-size: 12px; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--dim); background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .feed {
+    flex: 1; overflow-y: auto; padding: 8px 16px;
+    display: flex; flex-direction: column-reverse;
+  }
+  .feed-inner { display: flex; flex-direction: column; }
+  .event {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: 10px;
+    font-size: 13px; transition: background 0.1s;
+  }
+  .event:hover { background: var(--card); }
+  .event-icon { font-size: 16px; flex-shrink: 0; width: 24px; text-align: center; }
+  .event-tool { font-weight: 600; color: var(--accent); min-width: 160px; }
+  .event-summary { flex: 1; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .event-time { font-size: 11px; color: var(--dim); font-family: monospace; flex-shrink: 0; }
+  .event-ms { font-size: 11px; color: var(--dim); min-width: 48px; text-align: right; font-family: monospace; }
+  .event.blocked .event-summary { color: var(--yellow); }
+  .event.error .event-summary { color: var(--red); }
+
+  .empty-feed {
+    display: flex; align-items: center; justify-content: center;
+    height: 100%; color: var(--dim); font-size: 14px;
+    flex-direction: column; gap: 8px;
+  }
+  .empty-feed .hint { font-size: 12px; color: var(--border); }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .shell { flex-direction: column; }
+    .sidebar { width: 100%; min-width: 100%; max-height: 40vh; border-right: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span>◆</span> Agento</div>
+  <div class="status">
+    <div class="dot" id="dot"></div>
+    <span id="status-text">Connecting…</span>
+  </div>
+</header>
+
+<div class="shell">
+  <aside class="sidebar">
+    <div class="sidebar-section balance-card">
+      <div class="balance-label">Total Balance</div>
+      <div class="balance-value" id="total-balance">—</div>
+      <div class="balance-sub" id="wallet-count">Loading…</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="section-title">Wallets</div>
+      <div id="wallet-list"><div class="no-wallets">Loading…</div></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="stats">
+      <div class="stat"><div class="stat-value green" id="s-ok">0</div><div class="stat-label">Success</div></div>
+      <div class="stat"><div class="stat-value yellow" id="s-blocked">0</div><div class="stat-label">Blocked</div></div>
+      <div class="stat"><div class="stat-value red" id="s-err">0</div><div class="stat-label">Errors</div></div>
+      <div class="stat"><div class="stat-value blue" id="s-avg">0ms</div><div class="stat-label">Avg Time</div></div>
+    </div>
+    <div class="feed-header">Live Activity</div>
+    <div class="feed" id="feed">
+      <div class="feed-inner" id="feed-inner"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const API = window.location.origin;
+
+  // ── State ──
+  let stats = { ok: 0, blocked: 0, err: 0, totalMs: 0 };
+
+  // ── DOM refs ──
+  const $dot = document.getElementById("dot");
+  const $statusText = document.getElementById("status-text");
+  const $totalBalance = document.getElementById("total-balance");
+  const $walletCount = document.getElementById("wallet-count");
+  const $walletList = document.getElementById("wallet-list");
+  const $feedInner = document.getElementById("feed-inner");
+  const $feed = document.getElementById("feed");
+  const $sOk = document.getElementById("s-ok");
+  const $sBlocked = document.getElementById("s-blocked");
+  const $sErr = document.getElementById("s-err");
+  const $sAvg = document.getElementById("s-avg");
+
+  // ── Helpers ──
+  function fmtTime(iso) {
+    const d = new Date(iso);
+    return d.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+
+  function updateStats() {
+    $sOk.textContent = stats.ok;
+    $sBlocked.textContent = stats.blocked;
+    $sErr.textContent = stats.err;
+    const total = stats.ok + stats.blocked + stats.err;
+    $sAvg.textContent = total > 0 ? Math.round(stats.totalMs / total) + "ms" : "0ms";
+  }
+
+  // ── Wallets ──
+  async function loadWallets() {
+    try {
+      const res = await fetch(API + "/wallets");
+      const data = await res.json();
+      const wallets = data.wallets || [];
+      $walletCount.textContent = wallets.length + " wallet" + (wallets.length !== 1 ? "s" : "");
+
+      if (wallets.length === 0) {
+        $walletList.innerHTML = '<div class="no-wallets">No wallets yet</div>';
+        $totalBalance.textContent = "—";
+        return;
+      }
+
+      $walletList.innerHTML = "";
+      wallets.forEach(function (w, i) {
+        const el = document.createElement("div");
+        el.className = "wallet-item" + (i === 0 ? " active" : "");
+        const short = w.address.slice(0, 4) + "…" + w.address.slice(-4);
+        const date = new Date(w.created_at).toLocaleDateString();
+        el.innerHTML =
+          '<div class="wallet-icon">' + (i + 1) + "</div>" +
+          '<div class="wallet-meta"><div class="wallet-addr">' + short + '</div><div class="wallet-date">' + date + "</div></div>" +
+          '<div class="wallet-bal" id="wb-' + i + '">…</div>';
+        $walletList.appendChild(el);
+      });
+
+      // Fetch balances (fire and forget, no auth needed for read)
+      $totalBalance.textContent = "—";
+    } catch (e) {
+      $walletList.innerHTML = '<div class="no-wallets">Failed to load</div>';
+    }
+  }
+
+  // ── Event feed ──
+  function addEvent(event) {
+    // Update stats
+    if (event.status === "success") stats.ok++;
+    else if (event.status === "blocked") stats.blocked++;
+    else stats.err++;
+    stats.totalMs += event.durationMs || 0;
+    updateStats();
+
+    // Build DOM
+    const el = document.createElement("div");
+    el.className = "event" + (event.status === "blocked" ? " blocked" : "") + (event.status === "error" ? " error" : "");
+
+    const icon = event.status === "success" ? "✅" : event.status === "blocked" ? "🛡️" : "❌";
+
+    el.innerHTML =
+      '<div class="event-icon">' + icon + "</div>" +
+      '<div class="event-tool">' + event.tool + "</div>" +
+      '<div class="event-summary">' + escHtml(event.summary) + "</div>" +
+      '<div class="event-ms">' + (event.durationMs || 0) + "ms</div>" +
+      '<div class="event-time">' + fmtTime(event.timestamp) + "</div>";
+
+    $feedInner.appendChild(el);
+
+    // Auto-scroll if near bottom
+    if ($feed.scrollTop >= $feed.scrollHeight - $feed.clientHeight - 100) {
+      $feed.scrollTop = $feed.scrollHeight;
+    }
+
+    // Remove placeholder
+    const placeholder = document.querySelector(".empty-feed");
+    if (placeholder) placeholder.remove();
+  }
+
+  function escHtml(s) {
+    const d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  // ── SSE ──
+  function connectSSE() {
+    const es = new EventSource(API + "/events");
+
+    es.addEventListener("tool", function (e) {
+      try {
+        addEvent(JSON.parse(e.data));
+      } catch (_) {}
+    });
+
+    es.onopen = function () {
+      $dot.classList.add("on");
+      $statusText.textContent = "Connected";
+    };
+
+    es.onerror = function () {
+      $dot.classList.remove("on");
+      $statusText.textContent = "Reconnecting…";
+    };
+  }
+
+  // ── Init ──
+  loadWallets();
+  connectSSE();
+
+  // Refresh wallets every 30s
+  setInterval(loadWallets, 30000);
+
+  // Show empty state
+  $feedInner.innerHTML =
+    '<div class="empty-feed">' +
+    '<div>Waiting for agent activity…</div>' +
+    '<div class="hint">Events will appear here in real-time</div>' +
+    "</div>";
+})();
+</script>
+</body>
+</html>
